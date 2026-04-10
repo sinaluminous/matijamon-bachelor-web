@@ -272,7 +272,7 @@ function PlayerInGame({
           <DrawPhase isMyTurn={isMyTurn} currentPlayer={currentPlayer} onDraw={() => recordPlayerAction(code, me.id, "draw_card")} />
         )}
 
-        {state.card_phase === "show" && card && (
+        {state.card_phase === "show" && card && card.card_type !== "boss_fight" && (
           <CardPhase
             card={card}
             role={role}
@@ -283,6 +283,10 @@ function PlayerInGame({
             actedOnCard={actedOnCard}
             onAction={act}
           />
+        )}
+
+        {state.card_phase === "show" && card && card.card_type === "boss_fight" && (
+          <PhoneBattleView state={state} me={me} code={code} />
         )}
       </div>
 
@@ -460,6 +464,11 @@ function CardActions({ card, role, players, me, onAction }: {
     );
   }
 
+  // Boss Fight is handled separately at the parent level
+  if (card.card_type === "boss_fight") {
+    return null;
+  }
+
   // Most Likely / Who In Room / Mate: pick a player
   if (card.card_type === "most_likely" || card.card_type === "who_in_room" || card.card_type === "mate") {
     const targets = card.card_type === "mate" || card.card_type === "who_in_room"
@@ -518,6 +527,146 @@ function PlayerGrid({ players, onPick }: { players: PlayerRow[]; onPick: (p: Pla
       ))}
     </div>
   );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// PHONE BATTLE VIEW (for boss_fight cards)
+// ────────────────────────────────────────────────────────────────────────────
+
+function PhoneBattleView({ state, me, code }: { state: GameState; me: PlayerRow; code: string }) {
+  const battle = state.battle;
+  if (!battle) {
+    return (
+      <div className="text-center mt-12">
+        <p className="text-2xl text-[#FFC828] mb-2">⚔ BOSS FIGHT ⚔</p>
+        <p className="text-zinc-400 text-sm">Pripremam borbu...</p>
+      </div>
+    );
+  }
+
+  const isP1 = me.id === battle.p1_player_id;
+  const isP2 = me.id === battle.p2_player_id;
+  const isFighting = isP1 || isP2;
+  const isMyMove = (battle.selecting_for === "p1" && isP1) || (battle.selecting_for === "p2" && isP2);
+
+  const opponent = isP1
+    ? { name: battle.p2_name, fighter_id: battle.p2_fighter_id, hp: battle.p2_hp, max_hp: battle.p2_max_hp, types: battle.p2_types }
+    : isP2
+      ? { name: battle.p1_name, fighter_id: battle.p1_fighter_id, hp: battle.p1_hp, max_hp: battle.p1_max_hp, types: battle.p1_types }
+      : null;
+  const self = isP1
+    ? { name: battle.p1_name, fighter_id: battle.p1_fighter_id, hp: battle.p1_hp, max_hp: battle.p1_max_hp, types: battle.p1_types }
+    : isP2
+      ? { name: battle.p2_name, fighter_id: battle.p2_fighter_id, hp: battle.p2_hp, max_hp: battle.p2_max_hp, types: battle.p2_types }
+      : null;
+
+  const myMoves = isP1 ? battle.p1_moves : isP2 ? battle.p2_moves : [];
+
+  // Spectator mode
+  if (!isFighting) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="bg-[#1a1a28] border-2 border-[#FFC828] rounded-xl p-4 text-center">
+          <p className="text-[#FFC828] text-sm mb-2">⚔ BOSS FIGHT ⚔</p>
+          <p className="text-white text-lg">{battle.p1_name} VS {battle.p2_name}</p>
+          {battle.message && <p className="text-zinc-400 text-xs mt-3">{battle.message}</p>}
+        </div>
+        <div className="bg-[#1a1a28]/50 border border-zinc-700 rounded-lg p-3 text-center">
+          <p className="text-zinc-400 text-sm">👀 Pogledaj TV za borbu!</p>
+        </div>
+        {/* Mini HP display */}
+        <div className="grid grid-cols-2 gap-2">
+          <MiniFighterCard name={battle.p1_name} fighter_id={battle.p1_fighter_id} hp={battle.p1_hp} max_hp={battle.p1_max_hp} />
+          <MiniFighterCard name={battle.p2_name} fighter_id={battle.p2_fighter_id} hp={battle.p2_hp} max_hp={battle.p2_max_hp} />
+        </div>
+      </div>
+    );
+  }
+
+  // Resolved
+  if (battle.resolved) {
+    return (
+      <div className="text-center mt-6">
+        <p className="text-3xl text-[#FFC828] mb-4">⚔ KRAJ BORBE ⚔</p>
+        <p className="text-white text-lg">{battle.message}</p>
+      </div>
+    );
+  }
+
+  // Active fighter view
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Battle header */}
+      <div className="bg-[#1a1a28] border-2 border-[#FFC828] rounded-xl p-3 text-center">
+        <p className="text-[#FFC828] text-xs mb-2">⚔ BOSS FIGHT ⚔</p>
+        <p className="text-white text-base">{isMyMove ? "TVOJ POTEZ!" : `${opponent?.name} bira potez...`}</p>
+        {battle.message && <p className="text-zinc-400 text-xs mt-1">{battle.message}</p>}
+      </div>
+
+      {/* HP bars */}
+      <div className="grid grid-cols-2 gap-2">
+        {self && <MiniFighterCard name={self.name} fighter_id={self.fighter_id} hp={self.hp} max_hp={self.max_hp} highlight />}
+        {opponent && <MiniFighterCard name={opponent.name} fighter_id={opponent.fighter_id} hp={opponent.hp} max_hp={opponent.max_hp} />}
+      </div>
+
+      {/* Move buttons (only when it's your turn) */}
+      {isMyMove && myMoves.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          {myMoves.map((move, idx) => (
+            <button
+              key={idx}
+              onClick={() => recordPlayerAction(code, me.id, "battle_move", { move_idx: idx }, state.current_card?.id || null)}
+              className="text-left bg-[#1a1a28] border-2 border-zinc-700 active:border-[#FFC828] active:scale-95 rounded-lg p-3 transition"
+            >
+              <p className="text-white font-bold text-sm">{move.name}</p>
+              <div className="flex gap-2 items-center mt-1">
+                <span className="text-[8px] px-1 rounded text-black font-bold" style={{ backgroundColor: getTypeColor(move.type) }}>
+                  {move.type.toUpperCase()}
+                </span>
+                {move.power > 0 && <span className="text-zinc-500 text-[10px]">⚔ {move.power}</span>}
+                <span className="text-zinc-500 text-[10px]">PP {move.pp}/{move.max_pp}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!isMyMove && (
+        <p className="text-center text-zinc-500 text-sm mt-2">Cekam protivnika...</p>
+      )}
+    </div>
+  );
+}
+
+function MiniFighterCard({ name, fighter_id, hp, max_hp, highlight }: {
+  name: string; fighter_id: string; hp: number; max_hp: number; highlight?: boolean;
+}) {
+  const pct = Math.max(0, hp / max_hp);
+  const color = pct > 0.5 ? "#28C846" : pct > 0.2 ? "#FFC828" : "#DC3232";
+  return (
+    <div className={`bg-[#1a1a28] rounded-lg p-2 ${highlight ? "border-2 border-[#FFC828]" : "border border-zinc-700"}`}>
+      <div className="flex items-center gap-2 mb-1">
+        <img src={spriteUrl(fighter_id)} alt={name} className="w-8 h-8 pixel-art" />
+        <span className="text-white text-xs font-bold truncate">{name}</span>
+      </div>
+      <div className="bg-zinc-900 rounded h-2 overflow-hidden border border-zinc-700">
+        <div className="h-full transition-all" style={{ width: `${pct * 100}%`, backgroundColor: color }} />
+      </div>
+      <p className="text-[9px] text-zinc-400 text-right mt-1">{hp}/{max_hp}</p>
+    </div>
+  );
+}
+
+function getTypeColor(type: string): string {
+  const colors: Record<string, string> = {
+    alcohol: "#C83232",
+    amphetamines: "#E6B41E",
+    psychedelics: "#9632C8",
+    weed: "#32B432",
+    all: "#C8C8C8",
+    neutral: "#A0A0A0",
+  };
+  return colors[type] || "#888";
 }
 
 function MiniHUD({ players, currentPlayerName, meId }: {

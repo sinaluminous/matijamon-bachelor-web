@@ -58,9 +58,9 @@ export const ROUND_SUBTITLES: Record<number, string> = {
 
 // Card type weights per round
 const ROUND_WEIGHTS: Record<number, Record<CardType, number>> = {
-  1: { nhie: 20, truth: 15, wyr: 15, most_likely: 10, who_in_room: 10, hot_take: 5, dare: 8, categories: 5, rule: 3, mate: 3, groom_special: 4, boss_fight: 1, chaos: 3 },
-  2: { nhie: 12, truth: 12, wyr: 10, most_likely: 8, who_in_room: 8, hot_take: 5, dare: 12, categories: 6, rule: 3, mate: 3, groom_special: 8, boss_fight: 4, chaos: 8 },
-  3: { nhie: 8, truth: 8, wyr: 8, most_likely: 6, who_in_room: 6, hot_take: 5, dare: 12, categories: 5, rule: 2, mate: 2, groom_special: 12, boss_fight: 8, chaos: 15 },
+  1: { nhie: 18, truth: 15, wyr: 12, most_likely: 10, who_in_room: 8, hot_take: 5, dare: 8, categories: 4, rule: 3, mate: 3, groom_special: 4, boss_fight: 8, chaos: 3 },
+  2: { nhie: 12, truth: 12, wyr: 10, most_likely: 8, who_in_room: 6, hot_take: 5, dare: 10, categories: 5, rule: 3, mate: 3, groom_special: 8, boss_fight: 14, chaos: 6 },
+  3: { nhie: 8, truth: 8, wyr: 8, most_likely: 6, who_in_room: 5, hot_take: 5, dare: 10, categories: 4, rule: 2, mate: 2, groom_special: 10, boss_fight: 20, chaos: 12 },
 };
 
 const ROUND_DRINK_MULTIPLIER: Record<number, number> = { 1: 1, 2: 2, 3: 3 };
@@ -123,8 +123,8 @@ export function drawCard(ctx: DrawContext): GameCard {
   const weights = { ...ROUND_WEIGHTS[round] || ROUND_WEIGHTS[3] };
   const drinkMult = ROUND_DRINK_MULTIPLIER[round] || 3;
 
-  // Boss fight cooldown
-  if (bossFightCooldown < 12) weights.boss_fight = 0;
+  // Boss fight cooldown — at least 4 cards between battles
+  if (bossFightCooldown < 4) weights.boss_fight = 0;
   bossFightCooldown++;
 
   // Boost groom_special on groom's turn

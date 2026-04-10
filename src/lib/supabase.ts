@@ -68,6 +68,37 @@ export interface GameState {
   pending_drinks: DrinkPenalty[];
   vote_state: VoteState | null;
   music_track: string | null;
+  // Optional battle state when a boss_fight card is active
+  battle?: BattleStateSync | null;
+}
+
+// Synced battle state shape (a stripped-down BattleState that fits in JSON)
+export interface BattleStateSync {
+  // Player IDs (room players, not battle fighter IDs)
+  p1_player_id: string;
+  p2_player_id: string;
+  // Fighter snapshot
+  p1_fighter_id: string;
+  p2_fighter_id: string;
+  p1_name: string;
+  p2_name: string;
+  p1_hp: number;
+  p2_hp: number;
+  p1_max_hp: number;
+  p2_max_hp: number;
+  p1_types: string[];
+  p2_types: string[];
+  // Move pools
+  p1_moves: Array<{ name: string; type: string; category: string; power: number; pp: number; max_pp: number; description?: string }>;
+  p2_moves: Array<{ name: string; type: string; category: string; power: number; pp: number; max_pp: number; description?: string }>;
+  // Whose turn to pick
+  selecting_for: "p1" | "p2";
+  p1_move: number | null;
+  // Battle log (last few messages)
+  message: string;
+  // Done flag
+  resolved: boolean;
+  winner_id: string | null;
 }
 
 export interface GameCard {
