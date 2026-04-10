@@ -411,7 +411,17 @@ function CardActions({ card, role, players, me, onAction }: {
     const targets = card.card_type === "mate" || card.card_type === "who_in_room"
       ? players.filter(p => p.id !== me.id)
       : players;
-    return <PlayerGrid players={targets} onPick={(p) => onAction(card.card_type === "most_likely" ? "vote" : "pick", { target_id: p.id, target_name: p.name })} />;
+    const helperText = card.card_type === "mate"
+      ? "Odaberi pajdasa — od sad pijete zajedno!"
+      : card.card_type === "who_in_room"
+        ? "Odaberi nekog tko ce piti"
+        : "Glasaj za jednog";
+    return (
+      <div className="space-y-3">
+        <p className="text-center text-zinc-400 text-sm">{helperText}</p>
+        <PlayerGrid players={targets} onPick={(p) => onAction(card.card_type === "most_likely" ? "vote" : "pick", { target_id: p.id, target_name: p.name })} />
+      </div>
+    );
   }
 
   // Categories / Chaos: just OK

@@ -320,6 +320,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
       }
 
       if (!card) return;
+      if (ps.length === 0) return;
 
       // 2. NHIE — collect "did/didn't" from everyone
       if (card.card_type === "nhie" && action.action_type === "nhie_done") {
@@ -381,6 +382,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
       // 4. Pick (who_in_room, mate)
       if ((card.card_type === "who_in_room" || card.card_type === "mate") && action.action_type === "pick") {
         const targetName = (action.payload as { target_name?: string }).target_name;
+        const targetId = (action.payload as { target_id?: string }).target_id;
         if (card.card_type === "who_in_room" && targetName) {
           const penalties: DrinkPenalty[] = [{
             player_name: targetName,
@@ -389,8 +391,17 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             reason: `${targetName} pije ${card.drink_penalty}!`,
           }];
           await applyAndAdvance(penalties);
-        } else if (card.card_type === "mate" && targetName) {
-          // Add mate relationship - just advance for now
+        } else if (card.card_type === "mate" && targetName && targetId) {
+          // Bind the two players as mates (bidirectional)
+          const picker = ps.find(p => p.id === action.player_id);
+          const target = ps.find(p => p.id === targetId);
+          if (picker && target) {
+            const pickerMates = [...(picker.mates || []), target.name];
+            const targetMates = [...(target.mates || []), picker.name];
+            const { supabase } = await import("@/lib/supabase");
+            await supabase.from("players").update({ mates: pickerMates }).eq("id", picker.id);
+            await supabase.from("players").update({ mates: targetMates }).eq("id", target.id);
+          }
           await advanceTurn();
         }
         return;

@@ -276,6 +276,11 @@ export default function LocalGamePage() {
       // Tally
       const tally: Record<string, number> = {};
       for (const v of Object.values(newVotes)) tally[v] = (tally[v] || 0) + 1;
+      if (Object.keys(tally).length === 0) {
+        setVoteState(null);
+        advanceTurn();
+        return;
+      }
       const max = Math.max(...Object.values(tally));
       const winners = Object.entries(tally).filter(([, c]) => c === max).map(([n]) => n);
       const penalties = winners.map(name => ({ player_name: name, sips: card.drink_penalty, shots: 0, reason: `${max} glasova!` }));

@@ -255,7 +255,7 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       return {
         id, card_type: "groom_special", title: CARD_TITLES.groom_special,
         content: item.text,
-        instruction: `Mladozenja MORA! Preskoci = PIJE ${gutljaj(skipPenalty)}!`,
+        instruction: `Mladozenja pije ${gutljaj(mult)} svejedno. Preskoci = ${gutljaj(skipPenalty)}!`,
         drink_penalty: mult, drink_penalty_skip: skipPenalty,
         is_groom_targeted: true, target_type: "groom", sub_type: item.sub_type,
       };
@@ -263,10 +263,10 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
     case "boss_fight": {
       return {
         id, card_type: "boss_fight", title: CARD_TITLES.boss_fight,
-        content: "MATIJAMON BORBA!",
-        instruction: "2 igraca se bore! Gubitnik pije 3, pobjednik dijeli 3!",
+        content: "Mladozenja bira protivnika! Kamen-papir-skare. Gubitnik pije 3 gutljaja.",
+        instruction: "Odigrajte uzivo, host pritisne DALJE kad zavrsi.",
         drink_penalty: 3, drink_penalty_skip: 0,
-        is_groom_targeted: false, target_type: "all",
+        is_groom_targeted: false, target_type: "passive",
       };
     }
     case "chaos": {
