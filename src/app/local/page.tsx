@@ -66,7 +66,6 @@ export default function LocalGamePage() {
 
   // Music
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [audioStarted, setAudioStarted] = useState(false);
   const [musicVolume, setMusicVolume] = useState(0.3);
   const [musicMuted, setMusicMuted] = useState(false);
   const [musicPaused, setMusicPaused] = useState(false);
@@ -143,7 +142,6 @@ export default function LocalGamePage() {
     setCardsInRound(0);
     setCurrentPlayerIdx(0);
     setCardPhase("draw");
-    setAudioStarted(true);
 
     // Play music DIRECTLY in this click handler to satisfy autoplay policy
     if (audioRef.current) {

@@ -238,7 +238,7 @@ export function getEffectiveStat(f: BattleFighter, stat: "atk" | "def" | "spa" |
 
   // Apply stat stages
   const stage = f.stages[stat];
-  value = Math.round(value * STAGE_MULTIPLIERS[stage] || 1);
+  value = Math.round(value * (STAGE_MULTIPLIERS[stage] ?? 1));
 
   // Status modifiers
   if (stat === "spe" && f.status.drunk) value = Math.round(value * 0.7);

@@ -627,7 +627,7 @@ function CreditsRoll({ players, actions }: { players: CreditsPlayer[]; actions?:
             </p>
           </section>
 
-          {ranked.length >= 1 && (
+          {ranked.length >= 2 && (
             <section className="text-center">
               <p className="text-zinc-500 text-xs uppercase tracking-widest mb-6">PODIUM SRAMOTE</p>
               <div className="flex items-end justify-center gap-4">

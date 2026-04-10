@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   getRoom, joinRoom, getPlayers, subscribeToRoom, subscribeToPlayers,
@@ -535,6 +535,22 @@ function PlayerGrid({ players, onPick }: { players: PlayerRow[]; onPick: (p: Pla
 
 function PhoneBattleView({ state, me, code }: { state: GameState; me: PlayerRow; code: string }) {
   const battle = state.battle;
+  const submittingRef = useRef(false);
+  const lastTurnKeyRef = useRef<string | null>(null);
+
+  // Clear the "submitting" lock whenever the turn changes (host advanced)
+  const turnKey = battle ? `${battle.selecting_for}-${battle.p1_move}-${battle.p1_hp}-${battle.p2_hp}` : null;
+  if (turnKey !== lastTurnKeyRef.current) {
+    lastTurnKeyRef.current = turnKey;
+    submittingRef.current = false;
+  }
+
+  const submitMove = (idx: number) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    void recordPlayerAction(code, me.id, "battle_move", { move_idx: idx }, state.current_card?.id || null);
+  };
+
   if (!battle) {
     return (
       <div className="text-center mt-12">
@@ -615,7 +631,7 @@ function PhoneBattleView({ state, me, code }: { state: GameState; me: PlayerRow;
           {myMoves.map((move, idx) => (
             <button
               key={idx}
-              onClick={() => recordPlayerAction(code, me.id, "battle_move", { move_idx: idx }, state.current_card?.id || null)}
+              onClick={() => submitMove(idx)}
               className="text-left bg-[#1a1a28] border-2 border-zinc-700 active:border-[#FFC828] active:scale-95 rounded-lg p-3 transition"
             >
               <p className="text-white font-bold text-sm">{move.name}</p>

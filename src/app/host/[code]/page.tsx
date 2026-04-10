@@ -9,7 +9,7 @@ import {
   resetRoomToLobby, deleteRoom, kickPlayer, emptyGameState,
 } from "@/lib/room";
 import {
-  drawCard, applyGroomTax, applyMates, ROUND_NAMES, ROUND_SUBTITLES,
+  drawCard, applyGroomTax, applyMates, ROUND_NAMES,
   CARD_COLORS, formatDrinks, getDrunkComment,
 } from "@/lib/cards";
 import type { GameState, GameCard, PlayerRow, DrinkPenalty, BattleStateSync } from "@/lib/supabase";
@@ -65,6 +65,19 @@ const CARDS_PER_ROUND = 30;
 
 interface PlaylistTrack { name: string; url: string; fighter_id: string | null; }
 
+// Local battle state held by the host page (mirrored to room.state.battle for phones)
+interface LocalBattle {
+  state: MatijamonBattleState;
+  p1Player: PlayerRow;
+  p2Player: PlayerRow;
+  p1Move: number | null;
+  p2Move: number | null;
+  selectingFor: "p1" | "p2";
+  selectedMoveIdx: number;
+  message: string;
+  resolved: boolean;
+}
+
 export default function HostPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
   const router = useRouter();
@@ -72,7 +85,6 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [joinUrl, setJoinUrl] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [audioStarted, setAudioStarted] = useState(false);
   const [musicVolume, setMusicVolume] = useState(0.3);
   const [musicMuted, setMusicMuted] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<string>("");
@@ -84,20 +96,33 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
   const [actedPlayerIds, setActedPlayerIds] = useState<Set<string>>(new Set());
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onYes: () => void } | null>(null);
   const [showKickMenu, setShowKickMenu] = useState(false);
-  // Battle state (for boss fight cards)
-  const [battle, setBattle] = useState<{
-    state: MatijamonBattleState;
-    p1Player: PlayerRow;
-    p2Player: PlayerRow;
-    p1Move: number | null;
-    p2Move: number | null;
-    selectingFor: "p1" | "p2";
-    selectedMoveIdx: number;
-    message: string;
-    resolved: boolean;
-  } | null>(null);
+  // Battle state (for boss fight cards) — type declared next to the ref above
+  const [battle, setBattle] = useState<LocalBattle | null>(null);
 
   const tracks = playlist as PlaylistTrack[];
+
+  // ── Refs shadow state so the action-handler useEffect only re-subscribes
+  // once per room code instead of on every state/players update. Without
+  // this the Supabase channel gets torn down ~20x per minute and actions
+  // that land during the churn window are silently dropped.
+  const stateRef = useRef<GameState | null>(null);
+  const playersRef = useRef<PlayerRow[]>([]);
+  const battleRef = useRef<LocalBattle | null>(null);
+  const actedPlayerIdsRef = useRef<Set<string>>(new Set());
+  // Double-fire guards
+  const drawingRef = useRef(false);
+  const submittingMoveRef = useRef(false);
+  const advancingRef = useRef(false);
+  // Stable references for callbacks read from inside the action handler
+  const advanceTurnRef = useRef<() => Promise<void>>(async () => {});
+  const submitBattleMoveRef = useRef<(moveIdx: number) => Promise<void>>(async () => {});
+  const applyAndAdvanceRef = useRef<(penalties: DrinkPenalty[]) => Promise<void>>(async () => {});
+
+  // Keep refs in lockstep with state
+  useEffect(() => { stateRef.current = state; }, [state]);
+  useEffect(() => { playersRef.current = players; }, [players]);
+  useEffect(() => { battleRef.current = battle; }, [battle]);
+  useEffect(() => { actedPlayerIdsRef.current = actedPlayerIds; }, [actedPlayerIds]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -130,14 +155,65 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
     return subscribeToPlayers(code, (ps) => setPlayers(ps));
   }, [code]);
 
-  // Wake lock
+  // Wake lock — reacquire on visibility change since the browser releases
+  // the lock automatically when the tab is hidden.
   useEffect(() => {
     let wakeLock: WakeLockSentinel | null = null;
-    if (typeof navigator !== "undefined" && "wakeLock" in navigator) {
-      navigator.wakeLock.request("screen").then(w => { wakeLock = w; }).catch(() => {});
-    }
-    return () => { if (wakeLock) wakeLock.release().catch(() => {}); };
+    let cancelled = false;
+    const acquire = async () => {
+      if (cancelled) return;
+      if (typeof navigator === "undefined" || !("wakeLock" in navigator)) return;
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+      } catch {}
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void acquire();
+    };
+    void acquire();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (wakeLock) wakeLock.release().catch(() => {});
+    };
   }, []);
+
+  // Battle rehydration: if we land on a state where battle is in progress
+  // (e.g. host browser reloaded mid-fight) but local battle ref is empty,
+  // rebuild local battle from the synced room.state.battle so the host TV
+  // doesn't render the bare card text behind the phones.
+  useEffect(() => {
+    if (!state?.battle) return;
+    if (battleRef.current) return; // already alive
+    const sync = state.battle;
+    // We only need a thin local-battle stand-in pointing at the right
+    // players; the engine state itself is opaque to the TV view since
+    // showMoves is false until next selection. Recreate fighters from ids.
+    try {
+      const p1Player = playersRef.current.find(p => p.id === sync.p1_player_id);
+      const p2Player = playersRef.current.find(p => p.id === sync.p2_player_id);
+      if (!p1Player || !p2Player) return;
+      const battleState = createBattleState(sync.p1_fighter_id, sync.p2_fighter_id);
+      // Restore HP from the sync so the TV shows the current state, not full HP
+      battleState.player1.current_hp = sync.p1_hp;
+      battleState.player2.current_hp = sync.p2_hp;
+      const rehydrated: LocalBattle = {
+        state: battleState,
+        p1Player, p2Player,
+        p1Move: sync.p1_move,
+        p2Move: null,
+        selectingFor: sync.selecting_for,
+        selectedMoveIdx: 0,
+        message: sync.message,
+        resolved: sync.resolved,
+      };
+      setBattle(rehydrated);
+      battleRef.current = rehydrated;
+    } catch (err) {
+      console.error("Battle rehydration failed:", err);
+    }
+  }, [state?.battle]);
 
   // Play a specific track and add to history
   const playTrack = useCallback((track: PlaylistTrack, recordHistory = true) => {
@@ -209,7 +285,6 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   const startGame = async () => {
     if (!state || players.length < 2) return;
-    setAudioStarted(true);
 
     // CRITICAL: play audio directly inside the click handler to satisfy
     // browser autoplay policy. Don't use setTimeout — that breaks the
@@ -240,48 +315,59 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
   };
 
   const drawNewCard = async () => {
-    if (!state || players.length === 0) return;
-    const isGroomTurn = players[state.current_player_idx]?.is_groom || false;
-    const card = drawCard({ currentRound: state.current_round, isGroomTurn, bossFightCooldown: 99 });
-    setVoteTally({});
-    setActedPlayerIds(new Set());
+    if (drawingRef.current) return;
+    // Read the freshest state via ref — the caller may not have the latest
+    const curState = stateRef.current;
+    const curPlayers = playersRef.current;
+    if (!curState || curPlayers.length === 0) return;
+    if (curState.card_phase !== "draw") return;
 
-    // Boss Fight: kick off Matijamon battle
-    if (card.card_type === "boss_fight" && players.length >= 2) {
-      const p1 = players[state.current_player_idx];
-      const others = players.filter(p => p.id !== p1.id);
-      const p2 = others[Math.floor(Math.random() * others.length)];
-      const battleState = createBattleState(p1.fighter_id, p2.fighter_id);
-      const initialMessage = `${p1.name} VS ${p2.name}! ${p1.name}, odaberi potez!`;
-      setBattle({
-        state: battleState,
-        p1Player: p1,
-        p2Player: p2,
-        p1Move: null,
-        p2Move: null,
-        selectingFor: "p1",
-        selectedMoveIdx: 0,
-        message: initialMessage,
-        resolved: false,
-      });
-      // Sync to room state for phones
-      const battleSync = syncFromBattle(
-        battleState,
-        p1.id, p2.id,
-        p1.name, p2.name,
-        "p1",
-        null,
-        initialMessage,
-        false,
-      );
-      await updateRoomState(code, { ...state, current_card: card, card_phase: "show", battle: battleSync });
-      // Switch to battle music
-      const battleTracks = ["Thunderstruck", "Killing In", "Enter Sandman", "Mortal Kombat"];
-      playRandomTrack(battleTracks);
-      return;
+    drawingRef.current = true;
+    try {
+      const isGroomTurn = curPlayers[curState.current_player_idx]?.is_groom || false;
+      const card = drawCard({ currentRound: curState.current_round, isGroomTurn, bossFightCooldown: 99 });
+      setVoteTally({});
+      setActedPlayerIds(new Set());
+
+      // Boss Fight: kick off Matijamon battle
+      if (card.card_type === "boss_fight" && curPlayers.length >= 2) {
+        const p1 = curPlayers[curState.current_player_idx];
+        const others = curPlayers.filter(p => p.id !== p1.id);
+        const p2 = others[Math.floor(Math.random() * others.length)];
+        const battleState = createBattleState(p1.fighter_id, p2.fighter_id);
+        const initialMessage = `${p1.name} VS ${p2.name}! ${p1.name}, odaberi potez!`;
+        const newBattle: LocalBattle = {
+          state: battleState,
+          p1Player: p1,
+          p2Player: p2,
+          p1Move: null,
+          p2Move: null,
+          selectingFor: "p1",
+          selectedMoveIdx: 0,
+          message: initialMessage,
+          resolved: false,
+        };
+        setBattle(newBattle);
+        battleRef.current = newBattle;
+        const battleSync = syncFromBattle(
+          battleState,
+          p1.id, p2.id,
+          p1.name, p2.name,
+          "p1",
+          null,
+          initialMessage,
+          false,
+        );
+        await updateRoomState(code, { ...curState, current_card: card, card_phase: "show", battle: battleSync });
+        const battleTracks = ["Thunderstruck", "Killing In", "Enter Sandman", "Mortal Kombat"];
+        playRandomTrack(battleTracks);
+        return;
+      }
+
+      await updateRoomState(code, { ...curState, current_card: card, card_phase: "show", battle: null });
+    } finally {
+      drawingRef.current = false;
     }
-
-    await updateRoomState(code, { ...state, current_card: card, card_phase: "show", battle: null });
   };
 
   // Battle handlers
@@ -290,168 +376,213 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
     setBattle({ ...battle, selectedMoveIdx: idx });
   };
 
-  // Submit a move (used by both host TV and phones via action handler)
+  // Submit a move (used by both host TV and phones via action handler).
+  // Uses refs so concurrent TV + phone submits see the same snapshot and
+  // the double-fire guard short-circuits the second one.
   const submitBattleMove = useCallback(async (moveIdx: number) => {
-    if (!battle || !state) return;
+    if (submittingMoveRef.current) return;
+    const curBattle = battleRef.current;
+    const curState = stateRef.current;
+    const curPlayers = playersRef.current;
+    if (!curBattle || !curState) return;
+    if (curBattle.resolved) return;
 
-    if (battle.selectingFor === "p1") {
-      // Lock p1 move, switch to p2
-      const updated = {
-        ...battle,
-        p1Move: moveIdx,
-        selectingFor: "p2" as const,
-        selectedMoveIdx: 0,
-        message: `${battle.p2Player.name}, odaberi potez!`,
-      };
-      setBattle(updated);
-      const sync = syncFromBattle(
-        updated.state,
-        updated.p1Player.id, updated.p2Player.id,
-        updated.p1Player.name, updated.p2Player.name,
-        "p2",
-        moveIdx,
-        updated.message,
-        false,
-      );
-      await updateRoomState(code, { ...state, battle: sync });
-      return;
-    }
+    submittingMoveRef.current = true;
+    try {
+      if (curBattle.selectingFor === "p1") {
+        // Lock p1 move, switch to p2
+        const updated: LocalBattle = {
+          ...curBattle,
+          p1Move: moveIdx,
+          selectingFor: "p2",
+          selectedMoveIdx: 0,
+          message: `${curBattle.p2Player.name}, odaberi potez!`,
+        };
+        setBattle(updated);
+        battleRef.current = updated;
+        const sync = syncFromBattle(
+          updated.state,
+          updated.p1Player.id, updated.p2Player.id,
+          updated.p1Player.name, updated.p2Player.name,
+          "p2",
+          moveIdx,
+          updated.message,
+          false,
+        );
+        await updateRoomState(code, { ...curState, battle: sync });
+        return;
+      }
 
-    // Both moves picked → resolve turn
-    const p1MoveIdx = battle.p1Move ?? 0;
-    const p2MoveIdx = moveIdx;
-    executeTurn(battle.state, p1MoveIdx, p2MoveIdx);
-    const lastEvents = battle.state.log.slice(-8).filter(e => e.text);
-    const message = lastEvents.map(e => e.text).join(" ");
+      // Both moves picked → resolve turn
+      const p1MoveIdx = curBattle.p1Move ?? 0;
+      const p2MoveIdx = moveIdx;
+      executeTurn(curBattle.state, p1MoveIdx, p2MoveIdx);
+      const lastEvents = curBattle.state.log.slice(-8).filter(e => e.text);
+      const message = lastEvents.map(e => e.text).join(" ");
 
-    // Drink triggers
-    const drinkEvents = battle.state.log.slice(-12).filter(e => e.type === "drink_trigger");
-    const penalties: DrinkPenalty[] = [];
-    for (const ev of drinkEvents) {
-      if (!ev.drinkAmount) continue;
-      if (ev.drinkTarget === "attacker") {
-        penalties.push({ player_name: battle.p1Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
-      } else if (ev.drinkTarget === "defender") {
-        penalties.push({ player_name: battle.p2Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
-      } else if (ev.drinkTarget === "spectators") {
-        for (const p of players) {
-          if (p.id !== battle.p1Player.id && p.id !== battle.p2Player.id) {
-            penalties.push({ player_name: p.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+      // Drink triggers from move events
+      const drinkEvents = curBattle.state.log.slice(-12).filter(e => e.type === "drink_trigger");
+      const penalties: DrinkPenalty[] = [];
+      for (const ev of drinkEvents) {
+        if (!ev.drinkAmount) continue;
+        if (ev.drinkTarget === "attacker") {
+          penalties.push({ player_name: curBattle.p1Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+        } else if (ev.drinkTarget === "defender") {
+          penalties.push({ player_name: curBattle.p2Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+        } else if (ev.drinkTarget === "spectators") {
+          for (const p of curPlayers) {
+            if (p.id !== curBattle.p1Player.id && p.id !== curBattle.p2Player.id) {
+              penalties.push({ player_name: p.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+            }
           }
         }
       }
-    }
-    if (penalties.length > 0) {
-      const withMates = applyMates(penalties, players);
-      const withTax = applyGroomTax(withMates, players, state.current_round);
-      await applyDrinks(code, withTax);
-    }
+      if (penalties.length > 0) {
+        const withMates = applyMates(penalties, curPlayers);
+        const withTax = applyGroomTax(withMates, curPlayers, curState.current_round);
+        await applyDrinks(code, withTax);
+      }
 
-    if (battle.state.isOver) {
-      const winnerName = battle.state.winnerId === battle.p1Player.fighter_id ? battle.p1Player.name : battle.p2Player.name;
-      const loserName = battle.state.winnerId === battle.p1Player.fighter_id ? battle.p2Player.name : battle.p1Player.name;
-      const koPenalties: DrinkPenalty[] = [{
-        player_name: loserName, sips: 3, shots: 0, reason: `Gubitnik MATIJAMON borbe pije 3!`,
-      }];
-      const withMates = applyMates(koPenalties, players);
-      const withTax = applyGroomTax(withMates, players, state.current_round);
-      await applyDrinks(code, withTax);
+      if (curBattle.state.isOver) {
+        const winnerName = curBattle.state.winnerId === curBattle.p1Player.fighter_id ? curBattle.p1Player.name : curBattle.p2Player.name;
+        const loserName = curBattle.state.winnerId === curBattle.p1Player.fighter_id ? curBattle.p2Player.name : curBattle.p1Player.name;
+        const koPenalties: DrinkPenalty[] = [{
+          player_name: loserName, sips: 3, shots: 0, reason: `Gubitnik MATIJAMON borbe pije 3!`,
+        }];
+        const withMates = applyMates(koPenalties, curPlayers);
+        const withTax = applyGroomTax(withMates, curPlayers, curState.current_round);
+        await applyDrinks(code, withTax);
 
-      const finalMessage = `${winnerName} POBJEDJUJE! ${loserName} pije 3.`;
-      const updated = {
-        ...battle,
-        message: finalMessage,
-        resolved: true,
-        p1Move: null,
-        selectingFor: "p1" as const,
-        selectedMoveIdx: 0,
-      };
-      setBattle(updated);
-      const sync = syncFromBattle(
-        battle.state,
-        battle.p1Player.id, battle.p2Player.id,
-        battle.p1Player.name, battle.p2Player.name,
-        "p1",
-        null,
-        finalMessage,
-        true,
-      );
-      await updateRoomState(code, { ...state, battle: sync });
-    } else {
-      const continueMessage = message || `Sljedeci red. ${battle.p1Player.name}, odaberi potez!`;
-      const updated = {
-        ...battle,
-        message: continueMessage,
-        p1Move: null,
-        selectingFor: "p1" as const,
-        selectedMoveIdx: 0,
-      };
-      setBattle(updated);
-      const sync = syncFromBattle(
-        battle.state,
-        battle.p1Player.id, battle.p2Player.id,
-        battle.p1Player.name, battle.p2Player.name,
-        "p1",
-        null,
-        continueMessage,
-        false,
-      );
-      await updateRoomState(code, { ...state, battle: sync });
+        const finalMessage = `${winnerName} POBJEDJUJE! ${loserName} pije 3.`;
+        const updated: LocalBattle = {
+          ...curBattle,
+          message: finalMessage,
+          resolved: true,
+          p1Move: null,
+          selectingFor: "p1",
+          selectedMoveIdx: 0,
+        };
+        setBattle(updated);
+        battleRef.current = updated;
+        const sync = syncFromBattle(
+          curBattle.state,
+          curBattle.p1Player.id, curBattle.p2Player.id,
+          curBattle.p1Player.name, curBattle.p2Player.name,
+          "p1",
+          null,
+          finalMessage,
+          true,
+        );
+        await updateRoomState(code, { ...curState, battle: sync });
+      } else {
+        const continueMessage = message || `Sljedeci red. ${curBattle.p1Player.name}, odaberi potez!`;
+        const updated: LocalBattle = {
+          ...curBattle,
+          message: continueMessage,
+          p1Move: null,
+          selectingFor: "p1",
+          selectedMoveIdx: 0,
+        };
+        setBattle(updated);
+        battleRef.current = updated;
+        const sync = syncFromBattle(
+          curBattle.state,
+          curBattle.p1Player.id, curBattle.p2Player.id,
+          curBattle.p1Player.name, curBattle.p2Player.name,
+          "p1",
+          null,
+          continueMessage,
+          false,
+        );
+        await updateRoomState(code, { ...curState, battle: sync });
+      }
+    } finally {
+      submittingMoveRef.current = false;
     }
-  }, [battle, state, code, players]);
+  }, [code]);
 
   const handleBattleMoveConfirm = async () => {
-    if (!battle) return;
-    await submitBattleMove(battle.selectedMoveIdx);
+    const curBattle = battleRef.current;
+    if (!curBattle) return;
+    await submitBattleMove(curBattle.selectedMoveIdx);
   };
 
   const finishBattle = async () => {
-    if (!state) return;
+    const curState = stateRef.current;
+    if (!curState) return;
+    // Sync first, clear local only if the write succeeded — stops phones
+    // and TV from getting out of sync when the network flakes.
+    try {
+      await updateRoomState(code, { ...curState, battle: null });
+    } catch (err) {
+      console.error("finishBattle sync failed:", err);
+      return;
+    }
     setBattle(null);
-    // Clear battle from synced state too
-    await updateRoomState(code, { ...state, battle: null });
-    await advanceTurn();
+    battleRef.current = null;
+    await advanceTurnRef.current();
   };
 
   const advanceTurn = useCallback(async () => {
-    if (!state || players.length === 0) return;
-    const newCardsInRound = state.cards_in_round + 1;
-    let newRound = state.current_round;
-    let cardsInRound = newCardsInRound;
-    let phase: GameState["phase"] = state.phase;
+    if (advancingRef.current) return;
+    const curState = stateRef.current;
+    const curPlayers = playersRef.current;
+    if (!curState || curPlayers.length === 0) return;
 
-    if (newCardsInRound >= CARDS_PER_ROUND) {
-      if (state.current_round < 3) {
-        newRound = state.current_round + 1;
-        cardsInRound = 0;
-        const phasePools: Record<number, string[]> = {
-          2: ["Killing In", "Thunderstruck", "Faint", "Bodies"],
-          3: ["Enter Sandman", "Chop Suey", "Duality", "Through The Fire"],
-        };
-        playRandomTrack(phasePools[newRound]);
-      } else {
-        phase = "ended";
-        playRandomTrack(["We Are The Champions"]);
+    advancingRef.current = true;
+    try {
+      const newCardsInRound = curState.cards_in_round + 1;
+      let newRound = curState.current_round;
+      let cardsInRound = newCardsInRound;
+      let phase: GameState["phase"] = curState.phase;
+
+      if (newCardsInRound >= CARDS_PER_ROUND) {
+        if (curState.current_round < 3) {
+          newRound = curState.current_round + 1;
+          cardsInRound = 0;
+          const phasePools: Record<number, string[]> = {
+            2: ["Killing In", "Thunderstruck", "Faint", "Bodies"],
+            3: ["Enter Sandman", "Chop Suey", "Duality", "Through The Fire"],
+          };
+          playRandomTrack(phasePools[newRound]);
+        } else {
+          phase = "ended";
+          playRandomTrack(["We Are The Champions"]);
+        }
       }
+      // Clamp player index defensively in case a player got kicked mid-turn
+      const safeIdx = curPlayers.length > 0
+        ? (curState.current_player_idx + 1) % curPlayers.length
+        : 0;
+      await updateRoomState(code, {
+        ...curState, current_player_idx: safeIdx, cards_in_round: cardsInRound,
+        total_cards_drawn: curState.total_cards_drawn + 1, current_round: newRound,
+        current_card: null, card_phase: "draw", vote_state: null, phase,
+      });
+      setVoteTally({});
+      setActedPlayerIds(new Set());
+      actedPlayerIdsRef.current = new Set();
+    } finally {
+      advancingRef.current = false;
     }
-    const newPlayerIdx = (state.current_player_idx + 1) % players.length;
-    await updateRoomState(code, {
-      ...state, current_player_idx: newPlayerIdx, cards_in_round: cardsInRound,
-      total_cards_drawn: state.total_cards_drawn + 1, current_round: newRound,
-      current_card: null, card_phase: "draw", vote_state: null, phase,
-    });
-    setVoteTally({});
-    setActedPlayerIds(new Set());
-  }, [state, players, code, playRandomTrack]);
+  }, [code, playRandomTrack]);
 
-  // Apply drinks helper
+  // Apply drinks helper — reads from refs so it stays callable from the
+  // (single, code-only) action subscription.
   const applyAndAdvance = useCallback(async (penalties: DrinkPenalty[]) => {
-    if (!state) return;
-    const withMates = applyMates(penalties, players);
-    const withTax = applyGroomTax(withMates, players, state.current_round);
+    const curState = stateRef.current;
+    const curPlayers = playersRef.current;
+    if (!curState) return;
+    const withMates = applyMates(penalties, curPlayers);
+    const withTax = applyGroomTax(withMates, curPlayers, curState.current_round);
     await applyDrinks(code, withTax);
     await advanceTurn();
-  }, [state, players, code, advanceTurn]);
+  }, [code, advanceTurn]);
+
+  // Keep ref pointers fresh so the action handler can call the latest closure
+  useEffect(() => { advanceTurnRef.current = advanceTurn; }, [advanceTurn]);
+  useEffect(() => { submitBattleMoveRef.current = submitBattleMove; }, [submitBattleMove]);
+  useEffect(() => { applyAndAdvanceRef.current = applyAndAdvance; }, [applyAndAdvance]);
 
   // Admin actions
   const skipCard = async () => {
@@ -520,12 +651,19 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   // ────────────────────────────────────────────────────────────────────
   // PLAYER ACTION HANDLER
+  //
+  // This subscribes ONCE per room code. Everything inside reads from refs
+  // so the closure never goes stale, and actions never get dropped during
+  // re-subscription churn. All side effects live OUTSIDE setState updaters
+  // so React strict-mode double-invocation can't double-apply drinks.
   // ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!state || state.phase !== "playing") return;
-
     return subscribeToActions(code, async (action) => {
+      // Hot path: short-circuit when not playing
+      if (stateRef.current?.phase !== "playing") return;
+
+      // Always re-fetch the freshest room/players for the actual operation
       const room = await getRoom(code);
       if (!room) return;
       const fresh = room.state;
@@ -534,11 +672,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
       // 1. Player triggered "draw card" from their phone
       if (action.action_type === "draw_card" && fresh.card_phase === "draw") {
-        const isGroomTurn = ps[fresh.current_player_idx]?.is_groom || false;
-        const newCard = drawCard({ currentRound: fresh.current_round, isGroomTurn, bossFightCooldown: 99 });
-        setVoteTally({});
-        setActedPlayerIds(new Set());
-        await updateRoomState(code, { ...fresh, current_card: newCard, card_phase: "show" });
+        await drawNewCardForState(fresh, ps);
         return;
       }
 
@@ -560,16 +694,16 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           const withTax = applyGroomTax(withMates, ps, fresh.current_round);
           await applyDrinks(code, withTax);
         }
-        // Track who acted
-        setActedPlayerIds(prev => {
-          const next = new Set(prev);
-          next.add(action.player_id);
-          // If everyone acted, advance
-          if (next.size >= ps.length) {
-            advanceTurn();
-          }
-          return next;
-        });
+        // Compute "everyone acted" BEFORE setState — strict mode safe
+        const prevSet = actedPlayerIdsRef.current;
+        if (prevSet.has(action.player_id)) return;
+        const next = new Set(prevSet);
+        next.add(action.player_id);
+        actedPlayerIdsRef.current = next;
+        setActedPlayerIds(next);
+        if (next.size >= ps.length) {
+          await advanceTurnRef.current();
+        }
         return;
       }
 
@@ -578,13 +712,21 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           && (action.action_type === "did_it" || action.action_type === "chicken")) {
         const player = ps.find(p => p.id === action.player_id);
         if (action.action_type === "chicken" && player) {
+          // Track chickened_out_count for the credits screen achievements
+          try {
+            const { supabase } = await import("@/lib/supabase");
+            await supabase
+              .from("players")
+              .update({ chickened_out_count: (player.chickened_out_count || 0) + 1 })
+              .eq("id", player.id);
+          } catch {}
           const penalties: DrinkPenalty[] = [{
             player_name: player.name,
             sips: card.drink_penalty_skip,
             shots: 0,
             reason: "KUKAVICA!",
           }];
-          await applyAndAdvance(penalties);
+          await applyAndAdvanceRef.current(penalties);
         } else {
           // Groom special: groom drinks even if did
           if (card.card_type === "groom_special" && player?.is_groom) {
@@ -594,9 +736,9 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
               shots: 0,
               reason: "Mladozenja pije svejedno!",
             }];
-            await applyAndAdvance(penalties);
+            await applyAndAdvanceRef.current(penalties);
           } else {
-            await advanceTurn();
+            await advanceTurnRef.current();
           }
         }
         return;
@@ -613,22 +755,20 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             shots: 0,
             reason: `${targetName} pije ${card.drink_penalty}!`,
           }];
-          await applyAndAdvance(penalties);
+          await applyAndAdvanceRef.current(penalties);
         } else if (card.card_type === "mate" && targetName && targetId) {
-          // Bind the two players as mates (bidirectional)
           const picker = ps.find(p => p.id === action.player_id);
           const target = ps.find(p => p.id === targetId);
           if (picker && target) {
             const pickerMates = [...(picker.mates || []), target.name];
             const targetMates = [...(target.mates || []), picker.name];
             const { supabase } = await import("@/lib/supabase");
-            // Write both BEFORE advancing — parallel for speed
             await Promise.all([
               supabase.from("players").update({ mates: pickerMates }).eq("id", picker.id),
               supabase.from("players").update({ mates: targetMates }).eq("id", target.id),
             ]);
           }
-          await advanceTurn();
+          await advanceTurnRef.current();
         }
         return;
       }
@@ -643,37 +783,36 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           next[choice] = (next[choice] || 0) + 1;
           return next;
         });
-        setActedPlayerIds(prev => {
-          const next = new Set(prev);
-          next.add(action.player_id);
-          if (next.size >= ps.length) {
-            // All voted: tally and resolve
-            (async () => {
-              try {
-                const { supabase } = await import("@/lib/supabase");
-                const { data: allActions } = await supabase
-                  .from("player_actions")
-                  .select("player_id, payload")
-                  .eq("room_code", code)
-                  .eq("card_id", card.id)
-                  .eq("action_type", "vote");
-                if (!Array.isArray(allActions)) { await advanceTurn(); return; }
-                const aCount = allActions.filter((a: { payload: { choice?: string } }) => a.payload.choice === "a").length;
-                const bCount = allActions.filter((a: { payload: { choice?: string } }) => a.payload.choice === "b").length;
-                let losers: PlayerRow[] = [];
-                if (aCount === bCount) losers = ps;
-                else if (aCount < bCount) losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "a");
-                else losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "b");
-                const penalties = losers.map(p => ({ player_name: p.name, sips: card.drink_penalty, shots: 0, reason: "MANJINA PIJE!" }));
-                await applyAndAdvance(penalties);
-              } catch (err) {
-                console.error("Vote tally failed:", err);
-                await advanceTurn();
-              }
-            })();
+        // Compute everyone-voted BEFORE setState (strict mode safe)
+        const prevSet = actedPlayerIdsRef.current;
+        if (prevSet.has(action.player_id)) return;
+        const nextActed = new Set(prevSet);
+        nextActed.add(action.player_id);
+        actedPlayerIdsRef.current = nextActed;
+        setActedPlayerIds(nextActed);
+        if (nextActed.size >= ps.length) {
+          try {
+            const { supabase } = await import("@/lib/supabase");
+            const { data: allActions } = await supabase
+              .from("player_actions")
+              .select("player_id, payload")
+              .eq("room_code", code)
+              .eq("card_id", card.id)
+              .eq("action_type", "vote");
+            if (!Array.isArray(allActions)) { await advanceTurnRef.current(); return; }
+            const aCount = allActions.filter((a: { payload: { choice?: string } }) => a.payload.choice === "a").length;
+            const bCount = allActions.filter((a: { payload: { choice?: string } }) => a.payload.choice === "b").length;
+            let losers: PlayerRow[] = [];
+            if (aCount === bCount) losers = ps;
+            else if (aCount < bCount) losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "a");
+            else losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "b");
+            const penalties = losers.map(p => ({ player_name: p.name, sips: card.drink_penalty, shots: 0, reason: "MANJINA PIJE!" }));
+            await applyAndAdvanceRef.current(penalties);
+          } catch (err) {
+            console.error("Vote tally failed:", err);
+            await advanceTurnRef.current();
           }
-          return next;
-        });
+        }
         return;
       }
 
@@ -686,50 +825,48 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           next[targetName] = (next[targetName] || 0) + 1;
           return next;
         });
-        setActedPlayerIds(prev => {
-          const next = new Set(prev);
-          next.add(action.player_id);
-          if (next.size >= ps.length) {
-            (async () => {
-              try {
-                const { supabase } = await import("@/lib/supabase");
-                const { data: allActions } = await supabase
-                  .from("player_actions")
-                  .select("player_id, payload")
-                  .eq("room_code", code)
-                  .eq("card_id", card.id)
-                  .eq("action_type", "vote");
-                if (!Array.isArray(allActions)) { await advanceTurn(); return; }
-                const tally: Record<string, number> = {};
-                for (const a of allActions) {
-                  const t = (a.payload as { target_name?: string }).target_name;
-                  if (t) tally[t] = (tally[t] || 0) + 1;
-                }
-                if (Object.keys(tally).length > 0) {
-                  const max = Math.max(...Object.values(tally));
-                  const winners = Object.entries(tally).filter(([, c]) => c === max).map(([n]) => n);
-                  const penalties = winners.map(name => ({ player_name: name, sips: card.drink_penalty, shots: 0, reason: `${max} glasova!` }));
-                  await applyAndAdvance(penalties);
-                } else {
-                  await advanceTurn();
-                }
-              } catch (err) {
-                console.error("Most Likely tally failed:", err);
-                await advanceTurn();
-              }
-            })();
+        const prevSet = actedPlayerIdsRef.current;
+        if (prevSet.has(action.player_id)) return;
+        const nextActed = new Set(prevSet);
+        nextActed.add(action.player_id);
+        actedPlayerIdsRef.current = nextActed;
+        setActedPlayerIds(nextActed);
+        if (nextActed.size >= ps.length) {
+          try {
+            const { supabase } = await import("@/lib/supabase");
+            const { data: allActions } = await supabase
+              .from("player_actions")
+              .select("player_id, payload")
+              .eq("room_code", code)
+              .eq("card_id", card.id)
+              .eq("action_type", "vote");
+            if (!Array.isArray(allActions)) { await advanceTurnRef.current(); return; }
+            const tally: Record<string, number> = {};
+            for (const a of allActions) {
+              const t = (a.payload as { target_name?: string }).target_name;
+              if (t) tally[t] = (tally[t] || 0) + 1;
+            }
+            if (Object.keys(tally).length > 0) {
+              const max = Math.max(...Object.values(tally));
+              const winners = Object.entries(tally).filter(([, c]) => c === max).map(([n]) => n);
+              const penalties = winners.map(name => ({ player_name: name, sips: card.drink_penalty, shots: 0, reason: `${max} glasova!` }));
+              await applyAndAdvanceRef.current(penalties);
+            } else {
+              await advanceTurnRef.current();
+            }
+          } catch (err) {
+            console.error("Most Likely tally failed:", err);
+            await advanceTurnRef.current();
           }
-          return next;
-        });
+        }
         return;
       }
 
       // 7. Categories / Chaos / Rule — acknowledge to advance
       if (action.action_type === "acknowledge") {
-        // Wait for current player to ack
         const player = ps.find(p => p.id === action.player_id);
-        if (player && players[fresh.current_player_idx]?.id === player.id) {
-          await advanceTurn();
+        if (player && ps[fresh.current_player_idx]?.id === player.id) {
+          await advanceTurnRef.current();
         }
         return;
       }
@@ -738,28 +875,75 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
       if (action.action_type === "battle_move" && card.card_type === "boss_fight") {
         const moveIdx = (action.payload as { move_idx?: number }).move_idx;
         if (typeof moveIdx !== "number") return;
-        // Verify this player is the one currently selecting
-        if (!battle) return;
-        const expectedPlayerId = battle.selectingFor === "p1" ? battle.p1Player.id : battle.p2Player.id;
+        const curBattle = battleRef.current;
+        if (!curBattle) return;
+        const expectedPlayerId = curBattle.selectingFor === "p1" ? curBattle.p1Player.id : curBattle.p2Player.id;
         if (action.player_id !== expectedPlayerId) return;
-        // Submit the move
-        await submitBattleMove(moveIdx);
+        await submitBattleMoveRef.current(moveIdx);
         return;
       }
     });
-  }, [code, state, players, applyAndAdvance, advanceTurn, battle, submitBattleMove]);
+    // ⚠ Subscribe ONCE per code — refs handle the rest.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+
+  // Helper used by phone-triggered draw — same logic as drawNewCard but
+  // operates on a state snapshot we already have.
+  async function drawNewCardForState(fresh: GameState, ps: PlayerRow[]) {
+    if (drawingRef.current) return;
+    if (fresh.card_phase !== "draw") return;
+    drawingRef.current = true;
+    try {
+      const isGroomTurn = ps[fresh.current_player_idx]?.is_groom || false;
+      const card = drawCard({ currentRound: fresh.current_round, isGroomTurn, bossFightCooldown: 99 });
+
+      if (card.card_type === "boss_fight" && ps.length >= 2) {
+        const p1 = ps[fresh.current_player_idx];
+        const others = ps.filter(p => p.id !== p1.id);
+        const p2 = others[Math.floor(Math.random() * others.length)];
+        const battleState = createBattleState(p1.fighter_id, p2.fighter_id);
+        const initialMessage = `${p1.name} VS ${p2.name}! ${p1.name}, odaberi potez!`;
+        const newBattle: LocalBattle = {
+          state: battleState,
+          p1Player: p1, p2Player: p2,
+          p1Move: null, p2Move: null,
+          selectingFor: "p1",
+          selectedMoveIdx: 0,
+          message: initialMessage,
+          resolved: false,
+        };
+        setBattle(newBattle);
+        battleRef.current = newBattle;
+        const battleSync = syncFromBattle(battleState, p1.id, p2.id, p1.name, p2.name, "p1", null, initialMessage, false);
+        await updateRoomState(code, { ...fresh, current_card: card, card_phase: "show", battle: battleSync });
+        const battleTracks = ["Thunderstruck", "Killing In", "Enter Sandman", "Mortal Kombat"];
+        playRandomTrack(battleTracks);
+        return;
+      }
+
+      setVoteTally({});
+      setActedPlayerIds(new Set());
+      actedPlayerIdsRef.current = new Set();
+      await updateRoomState(code, { ...fresh, current_card: card, card_phase: "show", battle: null });
+    } finally {
+      drawingRef.current = false;
+    }
+  }
 
   // ────────────────────────────────────────────────────────────────────
   // RENDER
   // ────────────────────────────────────────────────────────────────────
 
-  if (!state) {
-    return <div className="min-h-screen flex items-center justify-center bg-[#0c0c14] text-white">Ucitavanje...</div>;
-  }
+  // We assemble each phase into `phaseContent`, then return once at the
+  // bottom with a SINGLE persistent <audio> element. Without this the
+  // audio DOM node unmounts on every phase transition (lobby→playing→
+  // ended) and the music briefly stops + restarts.
+  let phaseContent: React.ReactNode = null;
 
-  // ── LOBBY ──
-  if (state.phase === "lobby") {
-    return (
+  if (!state) {
+    phaseContent = <div className="min-h-screen flex items-center justify-center bg-[#0c0c14] text-white">Ucitavanje...</div>;
+  } else if (state.phase === "lobby") {
+    phaseContent = (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0c14] text-white p-8">
         <h1 className="text-6xl md:text-8xl font-bold text-[#FFC828] mb-2 tracking-wider">BACHELOR</h1>
         <h2 className="text-5xl md:text-7xl font-bold text-[#DC3232] mb-12 tracking-wider">SPECIAL</h2>
@@ -839,18 +1023,15 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             </div>
           </div>
         )}
-
-        <audio ref={audioRef} onEnded={nextTrack} />
       </div>
     );
-  }
-
-  // ── PLAYING ──
-  if (state.phase === "playing") {
-    const currentPlayer = players[state.current_player_idx];
+  } else if (state.phase === "playing") {
+    // Clamp in case a player was kicked mid-turn and the stored idx is stale
+    const safeIdx = players.length > 0 ? state.current_player_idx % players.length : 0;
+    const currentPlayer = players[safeIdx];
     const card = state.current_card;
 
-    return (
+    phaseContent = (
       <div className="min-h-screen flex flex-col bg-[#0c0c14] text-white relative">
         {/* TOP BAR */}
         <div className="px-6 py-3 bg-black/60 flex justify-between items-center border-b border-[#FFC828]/30">
@@ -1043,21 +1224,17 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             </div>
           </div>
         )}
-
-        <audio ref={audioRef} onEnded={nextTrack} />
       </div>
     );
-  }
-
-  // ── ENDED ──
-  if (state.phase === "ended") {
+  } else if (state.phase === "ended") {
     const newGameAction = async () => {
       await resetRoomToLobby(code);
       if (audioRef.current) audioRef.current.pause();
       setVoteTally({});
       setActedPlayerIds(new Set());
+      actedPlayerIdsRef.current = new Set();
     };
-    return (
+    phaseContent = (
       <>
         <CreditsScreen
           players={players}
@@ -1091,12 +1268,18 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             </div>
           </div>
         )}
-        <audio ref={audioRef} onEnded={nextTrack} />
       </>
     );
   }
 
-  return null;
+  return (
+    <>
+      {phaseContent}
+      {/* Single persistent audio element — outside phase switches so the
+          current track keeps playing through lobby → playing → ended. */}
+      <audio ref={audioRef} onEnded={nextTrack} />
+    </>
+  );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
