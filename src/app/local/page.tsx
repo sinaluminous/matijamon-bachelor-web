@@ -14,6 +14,7 @@ import type { GameCard, DrinkPenalty } from "@/lib/supabase";
 import { FIGHTERS, spriteUrl } from "@/lib/fighters";
 import playlist from "@/data/playlist.json";
 import { BattleScene } from "@/components/BattleScene";
+import { CreditsScreen } from "@/components/CreditsScreen";
 import { createBattleState, executeTurn, type BattleState as MatijamonBattleState } from "@/lib/battle";
 
 const CARDS_PER_ROUND = 30;
@@ -501,28 +502,31 @@ export default function LocalGamePage() {
   }
 
   if (phase === "ended") {
-    const ranked = [...players].sort((a, b) => (b.total_sips + b.total_shots * 3) - (a.total_sips + a.total_shots * 3));
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0c14] text-white p-8">
-        <h1 className="text-6xl text-[#FFC828] mb-8">JUTRO POSLIJE</h1>
-        <div className="space-y-2 max-w-2xl w-full mb-8">
-          {ranked.map((p, i) => (
-            <div key={p.id} className="flex items-center gap-4 bg-[#1a1a28] p-3 rounded-lg">
-              <span className="text-2xl text-[#FFC828] w-12">{i + 1}.</span>
-              <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-12 h-12 pixel-art" />
-              <span className="text-xl flex-1">{p.name}{p.is_groom && " ★"}{p.is_kum && " +"}</span>
-              <span className="text-xl text-[#FFC828]">{formatDrinks(p.total_sips, p.total_shots)}</span>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-3 justify-center">
-          <button onClick={restartGame} className="bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-3 px-6 rounded-lg">🔄 NOVA IGRA</button>
-          <button onClick={() => setPhase("setup")} className="bg-[#28508C] hover:bg-[#3264B4] text-white font-bold py-3 px-6 rounded-lg">👥 NOVI IGRACI</button>
-          <button onClick={() => router.push("/")} className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg">❌ IZLAZ</button>
-        </div>
+      <>
+        <CreditsScreen
+          players={players.map(p => ({
+            id: p.id,
+            name: p.name,
+            fighter_id: p.fighter_id,
+            is_groom: p.is_groom,
+            is_kum: p.is_kum,
+            total_sips: p.total_sips,
+            total_shots: p.total_shots,
+            mates: p.mates || [],
+            chickened_out_count: p.chickened_out_count,
+          }))}
+          actions={
+            <>
+              <button onClick={restartGame} className="bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-3 px-6 rounded-lg">🔄 NOVA IGRA</button>
+              <button onClick={() => setPhase("setup")} className="bg-[#28508C] hover:bg-[#3264B4] text-white font-bold py-3 px-6 rounded-lg">👥 NOVI IGRACI</button>
+              <button onClick={() => router.push("/")} className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg">❌ IZLAZ</button>
+            </>
+          }
+        />
         {confirmDialog && <ConfirmModal {...confirmDialog} onCancel={() => setConfirmDialog(null)} />}
         <audio ref={audioRef} onEnded={nextTrack} />
-      </div>
+      </>
     );
   }
 

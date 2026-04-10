@@ -16,6 +16,7 @@ import type { GameState, GameCard, PlayerRow, DrinkPenalty, BattleStateSync } fr
 import { spriteUrl } from "@/lib/fighters";
 import playlist from "@/data/playlist.json";
 import { BattleScene } from "@/components/BattleScene";
+import { CreditsScreen } from "@/components/CreditsScreen";
 import { createBattleState, executeTurn, type BattleState as MatijamonBattleState, type BattleFighter } from "@/lib/battle";
 
 // Helper: build the synced JSON from a full battle state
@@ -1050,47 +1051,33 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   // ── ENDED ──
   if (state.phase === "ended") {
-    const ranked = [...players].sort((a, b) => (b.total_sips + b.total_shots * 3) - (a.total_sips + a.total_shots * 3));
+    const newGameAction = async () => {
+      await resetRoomToLobby(code);
+      if (audioRef.current) audioRef.current.pause();
+      setVoteTally({});
+      setActedPlayerIds(new Set());
+    };
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0c14] text-white p-8">
-        <h1 className="text-6xl text-[#FFC828] mb-8">JUTRO POSLIJE</h1>
-        <div className="space-y-2 max-w-2xl w-full mb-8">
-          {ranked.map((p, i) => (
-            <div key={p.id} className="flex items-center gap-4 bg-[#1a1a28] p-3 rounded-lg">
-              <span className="text-2xl text-[#FFC828] w-12">{i + 1}.</span>
-              <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-12 h-12 pixel-art" />
-              <span className="text-xl flex-1">{p.name}{p.is_groom && " ★"}{p.is_kum && " +"}</span>
-              <span className="text-xl text-[#FFC828]">{formatDrinks(p.total_sips, p.total_shots)}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* End-screen admin actions */}
-        <div className="flex flex-wrap gap-3 justify-center">
-          <button onClick={async () => {
-              await resetRoomToLobby(code);
-              if (audioRef.current) audioRef.current.pause();
-              setVoteTally({});
-              setActedPlayerIds(new Set());
-            }}
-            className="bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-3 px-6 rounded-lg">
-            🔄 NOVA IGRA
-          </button>
-          <button onClick={async () => {
-              await resetRoomToLobby(code);
-              if (audioRef.current) audioRef.current.pause();
-              setVoteTally({});
-              setActedPlayerIds(new Set());
-            }}
-            className="bg-[#28508C] hover:bg-[#3264B4] text-white font-bold py-3 px-6 rounded-lg">
-            🏠 U PREDVORJE
-          </button>
-          <button onClick={exitToHome}
-            className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg">
-            ❌ IZLAZ
-          </button>
-        </div>
-
+      <>
+        <CreditsScreen
+          players={players}
+          actions={
+            <>
+              <button onClick={newGameAction}
+                className="bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-3 px-6 rounded-lg">
+                🔄 NOVA IGRA
+              </button>
+              <button onClick={newGameAction}
+                className="bg-[#28508C] hover:bg-[#3264B4] text-white font-bold py-3 px-6 rounded-lg">
+                🏠 U PREDVORJE
+              </button>
+              <button onClick={exitToHome}
+                className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg">
+                ❌ IZLAZ
+              </button>
+            </>
+          }
+        />
         {confirmDialog && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
             <div className="bg-[#1a1a28] border-4 border-[#FFC828] rounded-2xl p-8 max-w-md text-center">
@@ -1104,9 +1091,8 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             </div>
           </div>
         )}
-
         <audio ref={audioRef} onEnded={nextTrack} />
-      </div>
+      </>
     );
   }
 

@@ -31,8 +31,12 @@ export function getFighter(id: string): Fighter | undefined {
   return FIGHTERS.find(f => f.id === id);
 }
 
+// Fallback sprite when a fighter has no artwork — use matija1.png which is
+// an RGBA PNG with proper transparency (unlike matijamon.png which is 8-bit RGB).
+export const FALLBACK_SPRITE = "/sprites/matija1.png";
+
 export function spriteUrl(fighterId: string): string {
   const fighter = getFighter(fighterId);
-  if (fighter && !fighter.has_sprite) return "/sprites/matijamon.png";
+  if (fighter && !fighter.has_sprite) return FALLBACK_SPRITE;
   return `/sprites/${fighterId}1.png`;
 }

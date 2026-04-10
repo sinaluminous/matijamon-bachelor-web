@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BattleState, BattleFighter, MoveData } from "@/lib/battle";
 import { TYPE_COLORS } from "@/lib/battle";
-import { spriteUrl } from "@/lib/fighters";
+import { spriteUrl, FALLBACK_SPRITE } from "@/lib/fighters";
 
 interface BattleSceneProps {
   state: BattleState;
@@ -194,10 +194,13 @@ export function BattleScene({
             src={spriteUrl(state.player2.id)}
             alt={state.player2.name}
             className="pixel-art"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/sprites/matijamon.png"; }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = FALLBACK_SPRITE; }}
             style={{
-              width: isMobile ? 130 : 230,
-              height: isMobile ? 130 : 230,
+              maxWidth: isMobile ? 150 : 280,
+              maxHeight: isMobile ? 150 : 280,
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
               imageRendering: "pixelated",
               filter: state.player2.current_hp <= 0 ? "grayscale(1) brightness(0.5)" : "drop-shadow(0 6px 0 rgba(0,0,0,0.3))",
               opacity: state.player2.current_hp <= 0 ? 0.4 : 1,
@@ -239,10 +242,13 @@ export function BattleScene({
             src={spriteUrl(state.player1.id)}
             alt={state.player1.name}
             className="pixel-art"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/sprites/matijamon.png"; }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = FALLBACK_SPRITE; }}
             style={{
-              width: isMobile ? 150 : 280,
-              height: isMobile ? 150 : 280,
+              maxWidth: isMobile ? 170 : 320,
+              maxHeight: isMobile ? 170 : 320,
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
               imageRendering: "pixelated",
               filter: state.player1.current_hp <= 0 ? "grayscale(1) brightness(0.5)" : "drop-shadow(0 8px 0 rgba(0,0,0,0.35))",
               opacity: state.player1.current_hp <= 0 ? 0.4 : 1,
