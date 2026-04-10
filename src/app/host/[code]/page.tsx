@@ -31,6 +31,9 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
   const [musicVolume, setMusicVolume] = useState(0.3);
   const [musicMuted, setMusicMuted] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<string>("");
+  const [musicPaused, setMusicPaused] = useState(false);
+  const trackHistoryRef = useRef<PlaylistTrack[]>([]);
+  const trackHistoryPosRef = useRef<number>(-1);
   const [showAdminPanel, setShowAdminPanel] = useState(true);
   const [voteTally, setVoteTally] = useState<Record<string, number>>({});
   const [actedPlayerIds, setActedPlayerIds] = useState<Set<string>>(new Set());
@@ -78,7 +81,24 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
     return () => { if (wakeLock) wakeLock.release().catch(() => {}); };
   }, []);
 
-  // Music: random track from a phase pool
+  // Play a specific track and add to history
+  const playTrack = useCallback((track: PlaylistTrack, recordHistory = true) => {
+    if (!audioRef.current) return;
+    audioRef.current.src = track.url;
+    audioRef.current.volume = musicMuted ? 0 : musicVolume;
+    audioRef.current.play().catch(() => {});
+    setCurrentTrack(track.name);
+    setMusicPaused(false);
+    if (recordHistory) {
+      // Truncate any "future" history when picking a new track
+      const hist = trackHistoryRef.current.slice(0, trackHistoryPosRef.current + 1);
+      hist.push(track);
+      trackHistoryRef.current = hist;
+      trackHistoryPosRef.current = hist.length - 1;
+    }
+  }, [musicVolume, musicMuted]);
+
+  // Music: random track from a phase pool (or full playlist)
   const playRandomTrack = useCallback((phasePool?: string[]) => {
     if (!audioRef.current || !audioStarted) return;
     let candidates: PlaylistTrack[];
@@ -88,19 +108,35 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
     } else {
       candidates = tracks;
     }
+    // Avoid playing the same track twice in a row
+    if (candidates.length > 1 && currentTrack) {
+      candidates = candidates.filter(t => t.name !== currentTrack);
+    }
     const t = candidates[Math.floor(Math.random() * candidates.length)];
-    audioRef.current.src = t.url;
-    audioRef.current.volume = musicMuted ? 0 : musicVolume;
-    audioRef.current.play().catch(() => {});
-    setCurrentTrack(t.name);
-  }, [tracks, audioStarted, musicVolume, musicMuted]);
+    playTrack(t);
+  }, [tracks, audioStarted, currentTrack, playTrack]);
 
   const nextTrack = () => playRandomTrack();
+
+  const prevTrack = () => {
+    if (trackHistoryPosRef.current > 0) {
+      trackHistoryPosRef.current -= 1;
+      const t = trackHistoryRef.current[trackHistoryPosRef.current];
+      if (t) playTrack(t, false);
+    }
+  };
+
   const togglePause = () => {
     if (!audioRef.current) return;
-    if (audioRef.current.paused) audioRef.current.play().catch(() => {});
-    else audioRef.current.pause();
+    if (audioRef.current.paused) {
+      audioRef.current.play().catch(() => {});
+      setMusicPaused(false);
+    } else {
+      audioRef.current.pause();
+      setMusicPaused(true);
+    }
   };
+
   const toggleMute = () => {
     setMusicMuted(m => {
       const next = !m;
@@ -528,7 +564,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           </div>
         )}
 
-        <audio ref={audioRef} loop />
+        <audio ref={audioRef} onEnded={nextTrack} />
       </div>
     );
   }
@@ -659,19 +695,26 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
             {/* Music controls */}
             <p className="text-[9px] text-zinc-500 mb-1 mt-3">MUZIKA</p>
-            {currentTrack && <p className="text-[9px] text-zinc-400 mb-2 truncate">♪ {currentTrack}</p>}
-            <div className="flex gap-1 mb-2">
-              <button onClick={togglePause} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded">⏯</button>
-              <button onClick={nextTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded">⏭</button>
-              <button onClick={toggleMute} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded">{musicMuted ? "🔇" : "🔊"}</button>
+            <div className="bg-black/50 rounded px-2 py-1 mb-2 h-5 overflow-hidden">
+              {currentTrack ? <ScrollingText text={`♪ ${currentTrack}`} /> : <p className="text-[9px] text-zinc-600">— nema —</p>}
             </div>
-            <input type="range" min="0" max="100" value={musicVolume * 100}
-              onChange={(e) => {
-                const v = parseInt(e.target.value) / 100;
-                setMusicVolume(v);
-                if (audioRef.current && !musicMuted) audioRef.current.volume = v;
-              }}
-              className="w-full" />
+            <div className="flex gap-1 mb-2">
+              <button onClick={prevTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded" title="Prosla">⏮</button>
+              <button onClick={togglePause} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded" title={musicPaused ? "Reproduciraj" : "Pauziraj"}>{musicPaused ? "▶" : "⏸"}</button>
+              <button onClick={nextTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded" title="Sljedeca">⏭</button>
+              <button onClick={toggleMute} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded" title={musicMuted ? "Ukljuci zvuk" : "Iskljuci zvuk"}>{musicMuted ? "🔇" : "🔊"}</button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[8px] text-zinc-600 w-6 text-right">{Math.round(musicVolume * 100)}%</span>
+              <input type="range" min="0" max="100" value={musicVolume * 100}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value) / 100;
+                  setMusicVolume(v);
+                  if (audioRef.current && !musicMuted) audioRef.current.volume = v;
+                }}
+                className="flex-1" />
+            </div>
+            <p className="text-[9px] text-zinc-600 mt-1 text-center">{tracks.length} pjesama</p>
           </div>
         )}
 
@@ -694,7 +737,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           </div>
         )}
 
-        <audio ref={audioRef} loop />
+        <audio ref={audioRef} onEnded={nextTrack} />
       </div>
     );
   }
@@ -756,12 +799,41 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           </div>
         )}
 
-        <audio ref={audioRef} loop />
+        <audio ref={audioRef} onEnded={nextTrack} />
       </div>
     );
   }
 
   return null;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// ScrollingText - marquee for long track names
+// ────────────────────────────────────────────────────────────────────────────
+
+function ScrollingText({ text }: { text: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [needsScroll, setNeedsScroll] = useState(false);
+
+  useEffect(() => {
+    if (!ref.current || !innerRef.current) return;
+    const containerW = ref.current.clientWidth;
+    const textW = innerRef.current.scrollWidth;
+    setNeedsScroll(textW > containerW);
+  }, [text]);
+
+  return (
+    <div ref={ref} className="relative w-full h-full overflow-hidden whitespace-nowrap">
+      <div
+        ref={innerRef}
+        className={`text-[9px] text-zinc-300 inline-block ${needsScroll ? "animate-marquee" : ""}`}
+        style={needsScroll ? { paddingLeft: "100%" } : {}}
+      >
+        {text}
+      </div>
+    </div>
+  );
 }
 
 // ────────────────────────────────────────────────────────────────────────────

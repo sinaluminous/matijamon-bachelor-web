@@ -76,3 +76,14 @@ button, h1, h2, h3 {
 .animate-shake {
   animation: shake 0.5s ease-in-out;
 }
+
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  animation: marquee 12s linear infinite;
+  padding-right: 2rem;
+}
