@@ -52,14 +52,170 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
     return subscribeToPlayers(code, (ps) => setPlayers(ps));
   }, [code]);
 
-  // Subscribe to player actions
+  // Subscribe to player actions and resolve them server-side (host)
   useEffect(() => {
     return subscribeToActions(code, async (action) => {
-      // Action handling will be card-type specific
-      // For now, just refresh state
-      console.log("Action:", action);
+      // Always re-fetch fresh state because closure may be stale
+      const room = await getRoom(code);
+      if (!room) return;
+      const fresh = room.state;
+      const ps = await getPlayers(code);
+      if (!fresh.current_card) return;
+
+      // Player asked to draw their card on their turn
+      if (action.action_type === "draw_card" && fresh.card_phase === "draw") {
+        // The host's drawNewCard runs from the TV side, but allow phones to trigger it too
+        const isGroomTurn = ps[fresh.current_player_idx]?.is_groom || false;
+        const card = drawCard({
+          currentRound: fresh.current_round,
+          isGroomTurn,
+          bossFightCooldown: 99,
+        });
+        await updateRoomState(code, { ...fresh, current_card: card, card_phase: "show" });
+        return;
+      }
+
+      // Truth/Dare/Groom Special: did_it or chickened
+      if (fresh.current_card && action.action_type === "did_it") {
+        // No drink for the player; just advance
+        await advanceTurnInternal(code, fresh, ps);
+        return;
+      }
+      if (fresh.current_card && action.action_type === "chicken") {
+        const player = ps.find(p => p.id === action.player_id);
+        if (player) {
+          let penalties: DrinkPenalty[] = [{
+            player_name: player.name,
+            sips: fresh.current_card.drink_penalty_skip,
+            shots: 0,
+            reason: "KUKAVICA!",
+          }];
+          penalties = applyMates(penalties, ps);
+          penalties = applyGroomTax(penalties, ps, fresh.current_round);
+          await applyDrinks(code, penalties);
+        }
+        await advanceTurnInternal(code, fresh, ps);
+        return;
+      }
+
+      // Pick card (who_in_room, mate)
+      if (fresh.current_card && action.action_type === "pick") {
+        const targetName = (action.payload as { target_name?: string }).target_name;
+        if (targetName) {
+          let penalties: DrinkPenalty[] = [{
+            player_name: targetName,
+            sips: fresh.current_card.drink_penalty,
+            shots: 0,
+            reason: `${targetName} pije ${fresh.current_card.drink_penalty}!`,
+          }];
+          penalties = applyMates(penalties, ps);
+          penalties = applyGroomTax(penalties, ps, fresh.current_round);
+          await applyDrinks(code, penalties);
+        }
+        await advanceTurnInternal(code, fresh, ps);
+        return;
+      }
+
+      // Vote cards (most_likely, hot_take, wyr): collect all votes, then resolve
+      if (fresh.current_card && action.action_type === "vote") {
+        // Re-fetch action count for this card
+        const allActions = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/player_actions?room_code=eq.${code}&card_id=eq.${fresh.current_card.id}&action_type=eq.vote`,
+          {
+            headers: {
+              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+            },
+          },
+        ).then(r => r.json()).catch(() => []);
+
+        // Wait until all players have voted
+        if (Array.isArray(allActions) && allActions.length >= ps.length) {
+          await resolveVoteCard(code, fresh, ps, allActions);
+        }
+      }
     });
   }, [code]);
+
+  async function advanceTurnInternal(roomCode: string, currentState: GameState, ps: PlayerRow[]) {
+    const newCardsInRound = currentState.cards_in_round + 1;
+    let newRound = currentState.current_round;
+    let cardsInRound = newCardsInRound;
+    let phase: GameState["phase"] = currentState.phase;
+
+    if (newCardsInRound >= CARDS_PER_ROUND) {
+      if (currentState.current_round < 3) {
+        newRound = currentState.current_round + 1;
+        cardsInRound = 0;
+      } else {
+        phase = "ended";
+      }
+    }
+    const newPlayerIdx = (currentState.current_player_idx + 1) % ps.length;
+    await updateRoomState(roomCode, {
+      ...currentState,
+      current_player_idx: newPlayerIdx,
+      cards_in_round: cardsInRound,
+      total_cards_drawn: currentState.total_cards_drawn + 1,
+      current_round: newRound,
+      current_card: null,
+      card_phase: "draw",
+      vote_state: null,
+      phase,
+    });
+  }
+
+  async function resolveVoteCard(
+    roomCode: string,
+    currentState: GameState,
+    ps: PlayerRow[],
+    actions: Array<{ player_id: string; payload: { choice?: string; target_name?: string } }>,
+  ) {
+    const card = currentState.current_card;
+    if (!card) return;
+
+    let penalties: DrinkPenalty[] = [];
+
+    if (card.card_type === "wyr" || card.card_type === "hot_take") {
+      const aCount = actions.filter(a => a.payload.choice === "a").length;
+      const bCount = actions.filter(a => a.payload.choice === "b").length;
+      let losers: typeof ps = [];
+      if (aCount === bCount) {
+        losers = ps;
+      } else if (aCount < bCount) {
+        losers = ps.filter(p => actions.find(a => a.player_id === p.id)?.payload.choice === "a");
+      } else {
+        losers = ps.filter(p => actions.find(a => a.player_id === p.id)?.payload.choice === "b");
+      }
+      penalties = losers.map(p => ({
+        player_name: p.name,
+        sips: card.drink_penalty,
+        shots: 0,
+        reason: "MANJINA PIJE!",
+      }));
+    } else if (card.card_type === "most_likely") {
+      const tally: Record<string, number> = {};
+      for (const a of actions) {
+        const t = a.payload.target_name;
+        if (t) tally[t] = (tally[t] || 0) + 1;
+      }
+      if (Object.keys(tally).length > 0) {
+        const max = Math.max(...Object.values(tally));
+        const winners = Object.entries(tally).filter(([, c]) => c === max).map(([n]) => n);
+        penalties = winners.map(name => ({
+          player_name: name,
+          sips: card.drink_penalty,
+          shots: 0,
+          reason: `${max} glasova!`,
+        }));
+      }
+    }
+
+    penalties = applyMates(penalties, ps);
+    penalties = applyGroomTax(penalties, ps, currentState.current_round);
+    await applyDrinks(roomCode, penalties);
+    await advanceTurnInternal(roomCode, currentState, ps);
+  }
 
   // Wake lock so TV doesn't sleep
   useEffect(() => {
