@@ -15,7 +15,7 @@ import { FIGHTERS, spriteUrl } from "@/lib/fighters";
 import playlist from "@/data/playlist.json";
 import { BattleScene } from "@/components/BattleScene";
 import { CreditsScreen } from "@/components/CreditsScreen";
-import { createBattleState, executeTurn, type BattleState as MatijamonBattleState } from "@/lib/battle";
+import { createBattleState, executeTurn, aiPickMove, type BattleState as MatijamonBattleState } from "@/lib/battle";
 
 const CARDS_PER_ROUND = 30;
 
@@ -41,10 +41,6 @@ interface ActiveBattle {
   state: MatijamonBattleState;
   p1Player: LocalPlayer;
   p2Player: LocalPlayer;
-  p1Move: number | null;
-  p2Move: number | null;
-  selectingFor: "p1" | "p2";
-  selectedMoveIdx: number;
   message: string;
   resolved: boolean;
 }
@@ -63,6 +59,9 @@ export default function LocalGamePage() {
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onYes: () => void } | null>(null);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [battle, setBattle] = useState<ActiveBattle | null>(null);
+  const battleRef = useRef<ActiveBattle | null>(null);
+  const battleTurnRunningRef = useRef(false);
+  useEffect(() => { battleRef.current = battle; }, [battle]);
 
   // Music
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -170,74 +169,60 @@ export default function LocalGamePage() {
     setVoteState(null);
     setResultMessage(null);
 
-    // Boss fight: start a Matijamon battle between two random players
+    // Boss fight: start a Matijamon battle between two random players.
+    // Battles are fully automatic — runBattleAutoTurn picks both moves via
+    // aiPickMove and resolves turns on a timer.
     if (newCard.card_type === "boss_fight" && players.length >= 2) {
-      // Pick current player + random other
       const p1 = players[currentPlayerIdx];
       const others = players.filter(p => p.id !== p1.id);
       const p2 = others[Math.floor(Math.random() * others.length)];
       const battleState = createBattleState(p1.fighter_id, p2.fighter_id);
-      setBattle({
+      const newBattle: ActiveBattle = {
         state: battleState,
         p1Player: p1,
         p2Player: p2,
-        p1Move: null,
-        p2Move: null,
-        selectingFor: "p1",
-        selectedMoveIdx: 0,
         message: `${p1.name} VS ${p2.name}!`,
         resolved: false,
-      });
+      };
+      setBattle(newBattle);
+      battleRef.current = newBattle;
       setCardPhase("battle");
-      // Switch to battle music
       const battleTracks = ["Thunderstruck", "Killing In", "Enter Sandman", "Mortal Kombat"];
       playRandomTrack(battleTracks);
+      setTimeout(() => { void runBattleAutoTurn(); }, 2200);
     } else {
       setCardPhase("show");
     }
   };
 
-  // Battle handlers
-  const handleBattleMoveSelect = (idx: number) => {
-    if (!battle) return;
-    setBattle({ ...battle, selectedMoveIdx: idx });
-  };
+  // Run one automatic battle turn. Uses battleRef so the setTimeout chain
+  // always sees the latest mutated engine state.
+  const TURN_DELAY_MS = 3200;
+  const runBattleAutoTurn = useCallback(() => {
+    if (battleTurnRunningRef.current) return;
+    const cur = battleRef.current;
+    if (!cur || cur.resolved) return;
 
-  const handleBattleMoveConfirm = () => {
-    if (!battle) return;
-    if (battle.selectingFor === "p1") {
-      // Lock p1 move, switch to p2
-      const newBattle = {
-        ...battle,
-        p1Move: battle.selectedMoveIdx,
-        selectingFor: "p2" as const,
-        selectedMoveIdx: 0,
-        message: `${battle.p2Player.name}, odaberi potez!`,
-      };
-      setBattle(newBattle);
-    } else {
-      // Both moves picked → execute turn
-      const p1MoveIdx = battle.p1Move ?? 0;
-      const p2MoveIdx = battle.selectedMoveIdx;
-      // Mutate battle state in place (executeTurn modifies it)
-      executeTurn(battle.state, p1MoveIdx, p2MoveIdx);
-      // Get last few events for message
-      const lastEvents = battle.state.log.slice(-8).filter(e => e.text);
+    battleTurnRunningRef.current = true;
+    try {
+      const p1MoveIdx = aiPickMove(cur.state.player1);
+      const p2MoveIdx = aiPickMove(cur.state.player2);
+      executeTurn(cur.state, p1MoveIdx, p2MoveIdx);
+      const lastEvents = cur.state.log.slice(-8).filter(e => e.text);
       const message = lastEvents.map(e => e.text).join(" ");
 
-      // Check for drink triggers
-      const drinkEvents = battle.state.log.slice(-12).filter(e => e.type === "drink_trigger");
+      // Drink triggers from move events
+      const drinkEvents = cur.state.log.slice(-12).filter(e => e.type === "drink_trigger");
       const penalties: DrinkPenalty[] = [];
       for (const ev of drinkEvents) {
         if (!ev.drinkAmount) continue;
         if (ev.drinkTarget === "attacker") {
-          // Last attacker is whoever's move just resolved
-          penalties.push({ player_name: battle.p1Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+          penalties.push({ player_name: cur.p1Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
         } else if (ev.drinkTarget === "defender") {
-          penalties.push({ player_name: battle.p2Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+          penalties.push({ player_name: cur.p2Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
         } else if (ev.drinkTarget === "spectators") {
           for (const p of players) {
-            if (p.id !== battle.p1Player.id && p.id !== battle.p2Player.id) {
+            if (p.id !== cur.p1Player.id && p.id !== cur.p2Player.id) {
               penalties.push({ player_name: p.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
             }
           }
@@ -245,39 +230,35 @@ export default function LocalGamePage() {
       }
       if (penalties.length > 0) applyDrinks(penalties);
 
-      if (battle.state.isOver) {
-        // Final KO penalties
-        const winnerName = battle.state.winnerId === battle.p1Player.fighter_id ? battle.p1Player.name : battle.p2Player.name;
-        const loserName = battle.state.winnerId === battle.p1Player.fighter_id ? battle.p2Player.name : battle.p1Player.name;
+      if (cur.state.isOver) {
+        const winnerName = cur.state.winnerId === cur.p1Player.fighter_id ? cur.p1Player.name : cur.p2Player.name;
+        const loserName = cur.state.winnerId === cur.p1Player.fighter_id ? cur.p2Player.name : cur.p1Player.name;
         const koPenalties: DrinkPenalty[] = [{
-          player_name: loserName,
-          sips: 3,
-          shots: 0,
+          player_name: loserName, sips: 3, shots: 0,
           reason: `Gubitnik MATIJAMON borbe pije 3!`,
         }];
         applyDrinks(koPenalties);
-        setBattle({
-          ...battle,
-          state: battle.state,
+        const finished: ActiveBattle = {
+          ...cur,
           message: `${winnerName} POBJEDJUJE! ${loserName} pije 3.`,
           resolved: true,
-          p1Move: null,
-          selectingFor: "p1",
-          selectedMoveIdx: 0,
-        });
+        };
+        setBattle(finished);
+        battleRef.current = finished;
       } else {
-        // Continue: reset for next turn
-        setBattle({
-          ...battle,
-          state: battle.state,
-          message: message || `Sljedeci red. ${battle.p1Player.name}, odaberi potez!`,
-          p1Move: null,
-          selectingFor: "p1",
-          selectedMoveIdx: 0,
-        });
+        const cont: ActiveBattle = {
+          ...cur,
+          message: message || "Sljedeci potez...",
+        };
+        setBattle(cont);
+        battleRef.current = cont;
+        setTimeout(() => { runBattleAutoTurn(); }, TURN_DELAY_MS);
       }
+    } finally {
+      battleTurnRunningRef.current = false;
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players]);
 
   const finishBattle = () => {
     setBattle(null);
@@ -616,15 +597,13 @@ export default function LocalGamePage() {
             <div className="text-center mb-3">
               <p className="text-zinc-500 text-xs">BOSS FIGHT</p>
               <p className="text-2xl text-[#FFC828]">
-                {battle.selectingFor === "p1" ? battle.p1Player.name : battle.p2Player.name}, odaberi potez!
+                {battle.p1Player.name} VS {battle.p2Player.name}
               </p>
             </div>
             <BattleScene
-              state={battle.resolved ? battle.state : (battle.selectingFor === "p1" ? battle.state : { ...battle.state, player1: battle.state.player2, player2: battle.state.player1 })}
-              showMoves={!battle.resolved}
-              selectedMoveIdx={battle.selectedMoveIdx}
-              onMoveSelect={handleBattleMoveSelect}
-              onMoveConfirm={handleBattleMoveConfirm}
+              state={battle.state}
+              showMoves={false}
+              selectedMoveIdx={0}
               currentMessage={battle.message}
               mode="host"
             />

@@ -533,23 +533,8 @@ function PlayerGrid({ players, onPick }: { players: PlayerRow[]; onPick: (p: Pla
 // PHONE BATTLE VIEW (for boss_fight cards)
 // ────────────────────────────────────────────────────────────────────────────
 
-function PhoneBattleView({ state, me, code }: { state: GameState; me: PlayerRow; code: string }) {
+function PhoneBattleView({ state, me }: { state: GameState; me: PlayerRow; code: string }) {
   const battle = state.battle;
-  const submittingRef = useRef(false);
-  const lastTurnKeyRef = useRef<string | null>(null);
-
-  // Clear the "submitting" lock whenever the turn changes (host advanced)
-  const turnKey = battle ? `${battle.selecting_for}-${battle.p1_move}-${battle.p1_hp}-${battle.p2_hp}` : null;
-  if (turnKey !== lastTurnKeyRef.current) {
-    lastTurnKeyRef.current = turnKey;
-    submittingRef.current = false;
-  }
-
-  const submitMove = (idx: number) => {
-    if (submittingRef.current) return;
-    submittingRef.current = true;
-    void recordPlayerAction(code, me.id, "battle_move", { move_idx: idx }, state.current_card?.id || null);
-  };
 
   if (!battle) {
     return (
@@ -563,41 +548,6 @@ function PhoneBattleView({ state, me, code }: { state: GameState; me: PlayerRow;
   const isP1 = me.id === battle.p1_player_id;
   const isP2 = me.id === battle.p2_player_id;
   const isFighting = isP1 || isP2;
-  const isMyMove = (battle.selecting_for === "p1" && isP1) || (battle.selecting_for === "p2" && isP2);
-
-  const opponent = isP1
-    ? { name: battle.p2_name, fighter_id: battle.p2_fighter_id, hp: battle.p2_hp, max_hp: battle.p2_max_hp, types: battle.p2_types }
-    : isP2
-      ? { name: battle.p1_name, fighter_id: battle.p1_fighter_id, hp: battle.p1_hp, max_hp: battle.p1_max_hp, types: battle.p1_types }
-      : null;
-  const self = isP1
-    ? { name: battle.p1_name, fighter_id: battle.p1_fighter_id, hp: battle.p1_hp, max_hp: battle.p1_max_hp, types: battle.p1_types }
-    : isP2
-      ? { name: battle.p2_name, fighter_id: battle.p2_fighter_id, hp: battle.p2_hp, max_hp: battle.p2_max_hp, types: battle.p2_types }
-      : null;
-
-  const myMoves = isP1 ? battle.p1_moves : isP2 ? battle.p2_moves : [];
-
-  // Spectator mode
-  if (!isFighting) {
-    return (
-      <div className="flex flex-col gap-3">
-        <div className="bg-[#1a1a28] border-2 border-[#FFC828] rounded-xl p-4 text-center">
-          <p className="text-[#FFC828] text-sm mb-2">⚔ BOSS FIGHT ⚔</p>
-          <p className="text-white text-lg">{battle.p1_name} VS {battle.p2_name}</p>
-          {battle.message && <p className="text-zinc-400 text-xs mt-3">{battle.message}</p>}
-        </div>
-        <div className="bg-[#1a1a28]/50 border border-zinc-700 rounded-lg p-3 text-center">
-          <p className="text-zinc-400 text-sm">👀 Pogledaj TV za borbu!</p>
-        </div>
-        {/* Mini HP display */}
-        <div className="grid grid-cols-2 gap-2">
-          <MiniFighterCard name={battle.p1_name} fighter_id={battle.p1_fighter_id} hp={battle.p1_hp} max_hp={battle.p1_max_hp} />
-          <MiniFighterCard name={battle.p2_name} fighter_id={battle.p2_fighter_id} hp={battle.p2_hp} max_hp={battle.p2_max_hp} />
-        </div>
-      </div>
-    );
-  }
 
   // Resolved
   if (battle.resolved) {
@@ -609,46 +559,26 @@ function PhoneBattleView({ state, me, code }: { state: GameState; me: PlayerRow;
     );
   }
 
-  // Active fighter view
+  // Battles run fully automatically on the host — phones are spectators
+  // (including the two fighters themselves). Show HP bars and live log.
   return (
     <div className="flex flex-col gap-3">
-      {/* Battle header */}
-      <div className="bg-[#1a1a28] border-2 border-[#FFC828] rounded-xl p-3 text-center">
-        <p className="text-[#FFC828] text-xs mb-2">⚔ BOSS FIGHT ⚔</p>
-        <p className="text-white text-base">{isMyMove ? "TVOJ POTEZ!" : `${opponent?.name} bira potez...`}</p>
-        {battle.message && <p className="text-zinc-400 text-xs mt-1">{battle.message}</p>}
+      <div className="bg-[#1a1a28] border-2 border-[#FFC828] rounded-xl p-4 text-center">
+        <p className="text-[#FFC828] text-sm mb-2">⚔ BOSS FIGHT ⚔</p>
+        <p className="text-white text-lg">{battle.p1_name} VS {battle.p2_name}</p>
+        {isFighting && <p className="text-[#FFC828] text-xs mt-2">TI SE BORIS!</p>}
       </div>
-
-      {/* HP bars */}
+      <div className="bg-[#1a1a28]/50 border border-zinc-700 rounded-lg p-3 text-center">
+        <p className="text-zinc-400 text-sm">👀 Pogledaj TV — borba ide sama!</p>
+      </div>
       <div className="grid grid-cols-2 gap-2">
-        {self && <MiniFighterCard name={self.name} fighter_id={self.fighter_id} hp={self.hp} max_hp={self.max_hp} highlight />}
-        {opponent && <MiniFighterCard name={opponent.name} fighter_id={opponent.fighter_id} hp={opponent.hp} max_hp={opponent.max_hp} />}
+        <MiniFighterCard name={battle.p1_name} fighter_id={battle.p1_fighter_id} hp={battle.p1_hp} max_hp={battle.p1_max_hp} highlight={isP1} />
+        <MiniFighterCard name={battle.p2_name} fighter_id={battle.p2_fighter_id} hp={battle.p2_hp} max_hp={battle.p2_max_hp} highlight={isP2} />
       </div>
-
-      {/* Move buttons (only when it's your turn) */}
-      {isMyMove && myMoves.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          {myMoves.map((move, idx) => (
-            <button
-              key={idx}
-              onClick={() => submitMove(idx)}
-              className="text-left bg-[#1a1a28] border-2 border-zinc-700 active:border-[#FFC828] active:scale-95 rounded-lg p-3 transition"
-            >
-              <p className="text-white font-bold text-sm">{move.name}</p>
-              <div className="flex gap-2 items-center mt-1">
-                <span className="text-[8px] px-1 rounded text-black font-bold" style={{ backgroundColor: getTypeColor(move.type) }}>
-                  {move.type.toUpperCase()}
-                </span>
-                {move.power > 0 && <span className="text-zinc-500 text-[10px]">⚔ {move.power}</span>}
-                <span className="text-zinc-500 text-[10px]">PP {move.pp}/{move.max_pp}</span>
-              </div>
-            </button>
-          ))}
+      {battle.message && (
+        <div className="bg-[#1a1a28] border border-zinc-700 rounded-lg p-3">
+          <p className="text-zinc-200 text-xs leading-relaxed">{battle.message}</p>
         </div>
-      )}
-
-      {!isMyMove && (
-        <p className="text-center text-zinc-500 text-sm mt-2">Cekam protivnika...</p>
       )}
     </div>
   );

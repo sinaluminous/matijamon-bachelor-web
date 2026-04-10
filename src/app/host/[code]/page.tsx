@@ -17,15 +17,13 @@ import { spriteUrl } from "@/lib/fighters";
 import playlist from "@/data/playlist.json";
 import { BattleScene } from "@/components/BattleScene";
 import { CreditsScreen } from "@/components/CreditsScreen";
-import { createBattleState, executeTurn, type BattleState as MatijamonBattleState, type BattleFighter } from "@/lib/battle";
+import { createBattleState, executeTurn, aiPickMove, type BattleState as MatijamonBattleState, type BattleFighter } from "@/lib/battle";
 
 // Helper: build the synced JSON from a full battle state
 function syncFromBattle(
   battle: MatijamonBattleState,
   p1PlayerId: string, p2PlayerId: string,
   p1Name: string, p2Name: string,
-  selectingFor: "p1" | "p2",
-  p1MoveLocked: number | null,
   message: string,
   resolved: boolean,
 ): BattleStateSync {
@@ -53,8 +51,10 @@ function syncFromBattle(
     p2_types: battle.player2.types as string[],
     p1_moves: fighterToSync(battle.player1),
     p2_moves: fighterToSync(battle.player2),
-    selecting_for: selectingFor,
-    p1_move: p1MoveLocked,
+    // Legacy fields — kept in the type for sync-JSON compat but battles
+    // are now fully automatic, so nobody picks moves. Always "p1"/null.
+    selecting_for: "p1",
+    p1_move: null,
     message,
     resolved,
     winner_id: battle.winnerId,
@@ -66,14 +66,12 @@ const CARDS_PER_ROUND = 30;
 interface PlaylistTrack { name: string; url: string; fighter_id: string | null; }
 
 // Local battle state held by the host page (mirrored to room.state.battle for phones)
+// Battles are fully automatic now — moves are chosen by aiPickMove for both
+// fighters and turns auto-resolve on a timer, so there's no selection state.
 interface LocalBattle {
   state: MatijamonBattleState;
   p1Player: PlayerRow;
   p2Player: PlayerRow;
-  p1Move: number | null;
-  p2Move: number | null;
-  selectingFor: "p1" | "p2";
-  selectedMoveIdx: number;
   message: string;
   resolved: boolean;
 }
@@ -111,11 +109,11 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
   const actedPlayerIdsRef = useRef<Set<string>>(new Set());
   // Double-fire guards
   const drawingRef = useRef(false);
-  const submittingMoveRef = useRef(false);
+  const battleTurnRunningRef = useRef(false);
   const advancingRef = useRef(false);
   // Stable references for callbacks read from inside the action handler
   const advanceTurnRef = useRef<() => Promise<void>>(async () => {});
-  const submitBattleMoveRef = useRef<(moveIdx: number) => Promise<void>>(async () => {});
+  const runBattleAutoTurnRef = useRef<() => Promise<void>>(async () => {});
   const applyAndAdvanceRef = useRef<(penalties: DrinkPenalty[]) => Promise<void>>(async () => {});
 
   // Keep refs in lockstep with state
@@ -201,15 +199,16 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
       const rehydrated: LocalBattle = {
         state: battleState,
         p1Player, p2Player,
-        p1Move: sync.p1_move,
-        p2Move: null,
-        selectingFor: sync.selecting_for,
-        selectedMoveIdx: 0,
         message: sync.message,
         resolved: sync.resolved,
       };
       setBattle(rehydrated);
       battleRef.current = rehydrated;
+      // If the rehydrated battle is still live, kick the auto-runner back
+      // on so the fight continues after a host reload.
+      if (!sync.resolved) {
+        setTimeout(() => { void runBattleAutoTurnRef.current(); }, 2000);
+      }
     } catch (err) {
       console.error("Battle rehydration failed:", err);
     }
@@ -329,21 +328,19 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
       setVoteTally({});
       setActedPlayerIds(new Set());
 
-      // Boss Fight: kick off Matijamon battle
+      // Boss Fight: kick off Matijamon battle. Battles are fully automatic —
+      // aiPickMove picks both sides' moves and runBattleAutoTurn runs turns
+      // on a timer so everyone just watches the fight play out.
       if (card.card_type === "boss_fight" && curPlayers.length >= 2) {
         const p1 = curPlayers[curState.current_player_idx];
         const others = curPlayers.filter(p => p.id !== p1.id);
         const p2 = others[Math.floor(Math.random() * others.length)];
         const battleState = createBattleState(p1.fighter_id, p2.fighter_id);
-        const initialMessage = `${p1.name} VS ${p2.name}! ${p1.name}, odaberi potez!`;
+        const initialMessage = `${p1.name} VS ${p2.name}!`;
         const newBattle: LocalBattle = {
           state: battleState,
           p1Player: p1,
           p2Player: p2,
-          p1Move: null,
-          p2Move: null,
-          selectingFor: "p1",
-          selectedMoveIdx: 0,
           message: initialMessage,
           resolved: false,
         };
@@ -353,14 +350,14 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           battleState,
           p1.id, p2.id,
           p1.name, p2.name,
-          "p1",
-          null,
           initialMessage,
           false,
         );
         await updateRoomState(code, { ...curState, current_card: card, card_phase: "show", battle: battleSync });
         const battleTracks = ["Thunderstruck", "Killing In", "Enter Sandman", "Mortal Kombat"];
         playRandomTrack(battleTracks);
+        // Wait a beat for the intro, then let the auto-runner take over.
+        setTimeout(() => { void runBattleAutoTurnRef.current(); }, 2200);
         return;
       }
 
@@ -370,52 +367,22 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
     }
   };
 
-  // Battle handlers
-  const handleBattleMoveSelect = (idx: number) => {
-    if (!battle) return;
-    setBattle({ ...battle, selectedMoveIdx: idx });
-  };
-
-  // Submit a move (used by both host TV and phones via action handler).
-  // Uses refs so concurrent TV + phone submits see the same snapshot and
-  // the double-fire guard short-circuits the second one.
-  const submitBattleMove = useCallback(async (moveIdx: number) => {
-    if (submittingMoveRef.current) return;
+  // Run ONE automatic turn of the battle: aiPickMove for both fighters,
+  // resolve, apply any drink penalties the move events fired, sync to room.
+  // Schedules itself again via setTimeout until the battle is resolved.
+  const TURN_DELAY_MS = 3200; // time between turns so players can read the log
+  const runBattleAutoTurn = useCallback(async () => {
+    if (battleTurnRunningRef.current) return;
     const curBattle = battleRef.current;
     const curState = stateRef.current;
     const curPlayers = playersRef.current;
     if (!curBattle || !curState) return;
     if (curBattle.resolved) return;
 
-    submittingMoveRef.current = true;
+    battleTurnRunningRef.current = true;
     try {
-      if (curBattle.selectingFor === "p1") {
-        // Lock p1 move, switch to p2
-        const updated: LocalBattle = {
-          ...curBattle,
-          p1Move: moveIdx,
-          selectingFor: "p2",
-          selectedMoveIdx: 0,
-          message: `${curBattle.p2Player.name}, odaberi potez!`,
-        };
-        setBattle(updated);
-        battleRef.current = updated;
-        const sync = syncFromBattle(
-          updated.state,
-          updated.p1Player.id, updated.p2Player.id,
-          updated.p1Player.name, updated.p2Player.name,
-          "p2",
-          moveIdx,
-          updated.message,
-          false,
-        );
-        await updateRoomState(code, { ...curState, battle: sync });
-        return;
-      }
-
-      // Both moves picked → resolve turn
-      const p1MoveIdx = curBattle.p1Move ?? 0;
-      const p2MoveIdx = moveIdx;
+      const p1MoveIdx = aiPickMove(curBattle.state.player1);
+      const p2MoveIdx = aiPickMove(curBattle.state.player2);
       executeTurn(curBattle.state, p1MoveIdx, p2MoveIdx);
       const lastEvents = curBattle.state.log.slice(-8).filter(e => e.text);
       const message = lastEvents.map(e => e.text).join(" ");
@@ -458,9 +425,6 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           ...curBattle,
           message: finalMessage,
           resolved: true,
-          p1Move: null,
-          selectingFor: "p1",
-          selectedMoveIdx: 0,
         };
         setBattle(updated);
         battleRef.current = updated;
@@ -468,20 +432,15 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           curBattle.state,
           curBattle.p1Player.id, curBattle.p2Player.id,
           curBattle.p1Player.name, curBattle.p2Player.name,
-          "p1",
-          null,
           finalMessage,
           true,
         );
         await updateRoomState(code, { ...curState, battle: sync });
       } else {
-        const continueMessage = message || `Sljedeci red. ${curBattle.p1Player.name}, odaberi potez!`;
+        const continueMessage = message || `Sljedeci potez...`;
         const updated: LocalBattle = {
           ...curBattle,
           message: continueMessage,
-          p1Move: null,
-          selectingFor: "p1",
-          selectedMoveIdx: 0,
         };
         setBattle(updated);
         battleRef.current = updated;
@@ -489,23 +448,17 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           curBattle.state,
           curBattle.p1Player.id, curBattle.p2Player.id,
           curBattle.p1Player.name, curBattle.p2Player.name,
-          "p1",
-          null,
           continueMessage,
           false,
         );
         await updateRoomState(code, { ...curState, battle: sync });
+        // Schedule the next turn after the player has time to read the log
+        setTimeout(() => { void runBattleAutoTurnRef.current(); }, TURN_DELAY_MS);
       }
     } finally {
-      submittingMoveRef.current = false;
+      battleTurnRunningRef.current = false;
     }
   }, [code]);
-
-  const handleBattleMoveConfirm = async () => {
-    const curBattle = battleRef.current;
-    if (!curBattle) return;
-    await submitBattleMove(curBattle.selectedMoveIdx);
-  };
 
   const finishBattle = async () => {
     const curState = stateRef.current;
@@ -581,7 +534,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   // Keep ref pointers fresh so the action handler can call the latest closure
   useEffect(() => { advanceTurnRef.current = advanceTurn; }, [advanceTurn]);
-  useEffect(() => { submitBattleMoveRef.current = submitBattleMove; }, [submitBattleMove]);
+  useEffect(() => { runBattleAutoTurnRef.current = runBattleAutoTurn; }, [runBattleAutoTurn]);
   useEffect(() => { applyAndAdvanceRef.current = applyAndAdvance; }, [applyAndAdvance]);
 
   // Admin actions
@@ -871,17 +824,9 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
         return;
       }
 
-      // 8. Battle move from a phone
-      if (action.action_type === "battle_move" && card.card_type === "boss_fight") {
-        const moveIdx = (action.payload as { move_idx?: number }).move_idx;
-        if (typeof moveIdx !== "number") return;
-        const curBattle = battleRef.current;
-        if (!curBattle) return;
-        const expectedPlayerId = curBattle.selectingFor === "p1" ? curBattle.p1Player.id : curBattle.p2Player.id;
-        if (action.player_id !== expectedPlayerId) return;
-        await submitBattleMoveRef.current(moveIdx);
-        return;
-      }
+      // 8. Battle moves are now fully automatic (aiPickMove for both
+      // fighters, resolved on a timer by runBattleAutoTurn). Phones don't
+      // submit battle_move actions any more — any stale ones get ignored.
     });
     // ⚠ Subscribe ONCE per code — refs handle the rest.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -902,22 +847,20 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
         const others = ps.filter(p => p.id !== p1.id);
         const p2 = others[Math.floor(Math.random() * others.length)];
         const battleState = createBattleState(p1.fighter_id, p2.fighter_id);
-        const initialMessage = `${p1.name} VS ${p2.name}! ${p1.name}, odaberi potez!`;
+        const initialMessage = `${p1.name} VS ${p2.name}!`;
         const newBattle: LocalBattle = {
           state: battleState,
           p1Player: p1, p2Player: p2,
-          p1Move: null, p2Move: null,
-          selectingFor: "p1",
-          selectedMoveIdx: 0,
           message: initialMessage,
           resolved: false,
         };
         setBattle(newBattle);
         battleRef.current = newBattle;
-        const battleSync = syncFromBattle(battleState, p1.id, p2.id, p1.name, p2.name, "p1", null, initialMessage, false);
+        const battleSync = syncFromBattle(battleState, p1.id, p2.id, p1.name, p2.name, initialMessage, false);
         await updateRoomState(code, { ...fresh, current_card: card, card_phase: "show", battle: battleSync });
         const battleTracks = ["Thunderstruck", "Killing In", "Enter Sandman", "Mortal Kombat"];
         playRandomTrack(battleTracks);
+        setTimeout(() => { void runBattleAutoTurnRef.current(); }, 2200);
         return;
       }
 
@@ -1088,17 +1031,13 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
               <div className="text-center mb-3">
                 <p className="text-zinc-500 text-xs">BOSS FIGHT</p>
                 <p className="text-2xl text-[#FFC828]">
-                  {battle.selectingFor === "p1" ? battle.p1Player.name : battle.p2Player.name}, odaberi potez!
+                  {battle.p1Player.name} VS {battle.p2Player.name}
                 </p>
               </div>
               <BattleScene
-                state={battle.selectingFor === "p1" || battle.resolved
-                  ? battle.state
-                  : { ...battle.state, player1: battle.state.player2, player2: battle.state.player1 }}
-                showMoves={!battle.resolved}
-                selectedMoveIdx={battle.selectedMoveIdx}
-                onMoveSelect={handleBattleMoveSelect}
-                onMoveConfirm={handleBattleMoveConfirm}
+                state={battle.state}
+                showMoves={false}
+                selectedMoveIdx={0}
                 currentMessage={battle.message}
                 mode="host"
               />
