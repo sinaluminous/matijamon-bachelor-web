@@ -202,6 +202,18 @@ export function subscribeToRoom(
   roomCode: string,
   onChange: (state: GameState) => void,
 ) {
+  let lastUpdate = 0;
+  const handleChange = (state: GameState) => {
+    lastUpdate = Date.now();
+    onChange(state);
+  };
+
+  // Initial load
+  getRoom(roomCode).then(room => {
+    if (room) handleChange(room.state);
+  }).catch(() => {});
+
+  // Realtime subscription
   const channel = supabase
     .channel(`room:${roomCode}`)
     .on(
@@ -214,13 +226,24 @@ export function subscribeToRoom(
       },
       (payload) => {
         if (payload.new && (payload.new as RoomRow).state) {
-          onChange((payload.new as RoomRow).state);
+          handleChange((payload.new as RoomRow).state);
         }
       },
     )
     .subscribe();
+
+  // Polling fallback — refresh every 3s if no recent realtime update
+  const pollInterval = setInterval(async () => {
+    if (Date.now() - lastUpdate < 2500) return; // realtime is working
+    try {
+      const room = await getRoom(roomCode);
+      if (room) handleChange(room.state);
+    } catch {}
+  }, 3000);
+
   return () => {
     channel.unsubscribe();
+    clearInterval(pollInterval);
   };
 }
 
@@ -228,9 +251,13 @@ export function subscribeToPlayers(
   roomCode: string,
   onChange: (players: PlayerRow[]) => void,
 ) {
+  let lastUpdate = 0;
   const refresh = async () => {
-    const players = await getPlayers(roomCode);
-    onChange(players);
+    try {
+      const players = await getPlayers(roomCode);
+      lastUpdate = Date.now();
+      onChange(players);
+    } catch {}
   };
 
   refresh();
@@ -248,8 +275,16 @@ export function subscribeToPlayers(
       () => refresh(),
     )
     .subscribe();
+
+  // Polling fallback every 4s
+  const pollInterval = setInterval(() => {
+    if (Date.now() - lastUpdate < 3500) return;
+    refresh();
+  }, 4000);
+
   return () => {
     channel.unsubscribe();
+    clearInterval(pollInterval);
   };
 }
 

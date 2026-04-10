@@ -6,6 +6,8 @@ import {
   getRoom, joinRoom, getPlayers, subscribeToRoom, subscribeToPlayers,
   recordPlayerAction, getOrCreateSessionToken,
 } from "@/lib/room";
+
+// (getRoom imported above; used in visibility-change refresh)
 import { FIGHTERS, spriteUrl } from "@/lib/fighters";
 import type { GameState, PlayerRow, GameCard } from "@/lib/supabase";
 import { formatDrinks, getDrunkComment, CARD_COLORS } from "@/lib/cards";
@@ -59,7 +61,30 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         if (updated) setMe(updated);
       }
     });
-    return () => { unsub1(); unsub2(); };
+
+    // When the phone wakes from sleep / tab regains focus → force refresh
+    const onVisible = async () => {
+      if (document.visibilityState === "visible") {
+        try {
+          const room = await getRoom(code);
+          if (room) setState(room.state);
+          const ps = await getPlayers(code);
+          setPlayers(ps);
+          if (me) {
+            const updated = ps.find(p => p.id === me.id);
+            if (updated) setMe(updated);
+          }
+        } catch {}
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => {
+      unsub1(); unsub2();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [phase, code, me, actedOnCard]);
 
   const handleNameSubmit = () => { if (name.trim().length < 1) return; setPhase("fighter"); };
@@ -307,25 +332,53 @@ function CardPhase({ card, role, isMyTurn, currentPlayer, players, me, actedOnCa
 }) {
   const colors = CARD_COLORS[card.card_type as keyof typeof CARD_COLORS];
   const acted = actedOnCard === card.id;
+  // Active player or all-vote card → show card BIG and prominent
+  const isActive = role === "active" || role === "groom";
 
   return (
-    <div className="flex flex-col gap-4 h-full">
-      {/* Card title strip */}
-      <div className="rounded-lg p-2 text-center" style={{ backgroundColor: colors?.bg || "#333" }}>
-        <p className="text-xs font-bold" style={{ color: colors?.accent }}>{card.title}</p>
-      </div>
-
-      {/* Card content */}
-      <div className="bg-[#1a1a28] border-2 rounded-xl p-4" style={{ borderColor: colors?.accent }}>
-        <p className="text-base text-white text-center leading-relaxed">{card.content}</p>
+    <div className="flex flex-col gap-3 h-full">
+      {/* Card content — BIG if active */}
+      <div
+        className="rounded-2xl p-5 shadow-2xl"
+        style={{
+          backgroundColor: colors?.bg || "#333",
+          borderColor: colors?.accent || "#888",
+          borderWidth: 3,
+        }}
+      >
+        <p
+          className="text-xs font-bold text-center mb-2 tracking-wider"
+          style={{ color: colors?.accent }}
+        >
+          {card.title}
+        </p>
+        <div className="border-t my-2 opacity-40" style={{ borderColor: colors?.accent }} />
+        <p
+          className={`text-white text-center leading-snug font-bold ${
+            isActive ? "text-2xl py-4" : "text-lg py-2"
+          }`}
+        >
+          {card.content}
+        </p>
         {card.content_b && (
           <>
-            <p className="text-center text-xs text-zinc-500 my-3">— ILI —</p>
-            <p className="text-base text-white text-center leading-relaxed">{card.content_b}</p>
+            <p className="text-center text-xs opacity-70 my-2" style={{ color: colors?.accent }}>— ILI —</p>
+            <p
+              className={`text-white text-center leading-snug font-bold ${
+                isActive ? "text-2xl py-4" : "text-lg py-2"
+              }`}
+            >
+              {card.content_b}
+            </p>
           </>
         )}
+        {card.instruction && (
+          <p className="text-center text-xs mt-3" style={{ color: colors?.accent }}>
+            {card.instruction}
+          </p>
+        )}
         {card.is_groom_targeted && (
-          <p className="text-center text-xs text-[#FFC828] mt-3 animate-pulse">★ MLADOZENJA ★</p>
+          <p className="text-center text-sm text-[#FFC828] mt-2 animate-pulse">★ MLADOZENJA ★</p>
         )}
       </div>
 
