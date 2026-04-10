@@ -298,6 +298,21 @@ export default function LocalGamePage() {
     setTimeout(() => advanceTurn(), 1500);
   };
 
+  const handleMatePick = (matePlayerName: string) => {
+    if (!card) return;
+    const current = players[currentPlayerIdx];
+    if (!current) return;
+    // Bidirectional mate binding
+    setPlayers(prev => prev.map(p => {
+      if (p.id === current.id) return { ...p, mates: [...p.mates, matePlayerName] };
+      if (p.name === matePlayerName) return { ...p, mates: [...p.mates, current.name] };
+      return p;
+    }));
+    setResultMessage(`${current.name} <3 ${matePlayerName} — pajdasi su!`);
+    setCardPhase("result");
+    setTimeout(() => advanceTurn(), 2500);
+  };
+
   const handleAcknowledge = () => advanceTurn();
 
   // Admin
@@ -442,6 +457,7 @@ export default function LocalGamePage() {
             onStartVote={startBinaryVote}
             onStartPick={startGroupPick}
             onSinglePick={handleSinglePick}
+            onMatePick={handleMatePick}
             onAdvance={handleAcknowledge}
           />
         )}
@@ -663,7 +679,7 @@ function SetupScreen({ onStart, onCancel }: { onStart: (players: LocalPlayer[]) 
 // CARD DISPLAY (in show phase)
 // ────────────────────────────────────────────────────────────────────────────
 
-function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onStartVote, onStartPick, onSinglePick, onAdvance }: {
+function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onStartVote, onStartPick, onSinglePick, onMatePick, onAdvance }: {
   card: GameCard;
   players: LocalPlayer[];
   currentPlayer?: LocalPlayer;
@@ -672,6 +688,7 @@ function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onSt
   onStartVote: () => void;
   onStartPick: () => void;
   onSinglePick: (targetName: string) => void;
+  onMatePick: (targetName: string) => void;
   onAdvance: () => void;
 }) {
   const colors = CARD_COLORS[card.card_type as keyof typeof CARD_COLORS];
@@ -759,10 +776,10 @@ function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onSt
         {/* Mate — current player picks */}
         {card.card_type === "mate" && currentPlayer && (
           <div className="w-full">
-            <p className="text-center text-zinc-400 mb-3">{currentPlayer.name}, odaberi pajdasa:</p>
+            <p className="text-center text-zinc-400 mb-3">{currentPlayer.name}, odaberi pajdasa (od sad pijete zajedno):</p>
             <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
               {players.filter(p => p.id !== currentPlayer.id).map(p => (
-                <button key={p.id} onClick={onAdvance}
+                <button key={p.id} onClick={() => onMatePick(p.name)}
                   className="p-2 rounded-lg border-2 border-zinc-700 bg-[#1a1a28] hover:border-[#FFC828] active:scale-95">
                   <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-full pixel-art" />
                   <p className="text-[10px] mt-1 text-white text-center">{p.name}</p>

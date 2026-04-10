@@ -29,12 +29,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   useEffect(() => {
     (async () => {
       try {
-        const room = await getRoom(code);
+        // Parallel fetch for faster cold start
+        const [room, ps] = await Promise.all([getRoom(code), getPlayers(code)]);
         if (!room) { setError("Soba ne postoji ili je istekla"); setPhase("error"); return; }
         setState(room.state);
-        const token = getOrCreateSessionToken();
-        const ps = await getPlayers(code);
         setPlayers(ps);
+        const token = getOrCreateSessionToken();
         const existing = ps.find(p => p.session_token === token);
         if (existing) { setMe(existing); setPhase("in_game"); }
         else setPhase("name");
@@ -45,47 +45,48 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     })();
   }, [code]);
 
+  // Subscriptions: only re-create when phase or code changes
   useEffect(() => {
     if (phase !== "in_game") return;
     const unsub1 = subscribeToRoom(code, (s) => {
       setState(s);
-      // Reset acted-on-card flag when card changes
-      if (!s.current_card || s.current_card.id !== actedOnCard) {
-        setActedOnCard(null);
-      }
+      setActedOnCard(prev => {
+        if (!s.current_card || s.current_card.id !== prev) return null;
+        return prev;
+      });
     });
     const unsub2 = subscribeToPlayers(code, (ps) => {
       setPlayers(ps);
-      if (me) {
-        const updated = ps.find(p => p.id === me.id);
-        if (updated) setMe(updated);
-      }
+      setMe(prev => {
+        if (!prev) return prev;
+        return ps.find(p => p.id === prev.id) || prev;
+      });
     });
+    return () => { unsub1(); unsub2(); };
+  }, [phase, code]);
 
-    // When the phone wakes from sleep / tab regains focus → force refresh
+  // Visibility handler: stable, mounted once
+  useEffect(() => {
+    if (phase !== "in_game") return;
     const onVisible = async () => {
-      if (document.visibilityState === "visible") {
-        try {
-          const room = await getRoom(code);
-          if (room) setState(room.state);
-          const ps = await getPlayers(code);
-          setPlayers(ps);
-          if (me) {
-            const updated = ps.find(p => p.id === me.id);
-            if (updated) setMe(updated);
-          }
-        } catch {}
-      }
+      if (document.visibilityState !== "visible") return;
+      try {
+        const [room, ps] = await Promise.all([getRoom(code), getPlayers(code)]);
+        if (room) setState(room.state);
+        setPlayers(ps);
+        setMe(prev => {
+          if (!prev) return prev;
+          return ps.find(p => p.id === prev.id) || prev;
+        });
+      } catch {}
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
-
     return () => {
-      unsub1(); unsub2();
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [phase, code, me, actedOnCard]);
+  }, [phase, code]);
 
   const handleNameSubmit = () => { if (name.trim().length < 1) return; setPhase("fighter"); };
 

@@ -50,10 +50,11 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   useEffect(() => {
     (async () => {
-      const room = await getRoom(code);
-      if (room) setState(room.state);
-      const ps = await getPlayers(code);
-      setPlayers(ps);
+      try {
+        const [room, ps] = await Promise.all([getRoom(code), getPlayers(code)]);
+        if (room) setState(room.state);
+        setPlayers(ps);
+      } catch {}
     })();
   }, [code]);
 
@@ -399,8 +400,11 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             const pickerMates = [...(picker.mates || []), target.name];
             const targetMates = [...(target.mates || []), picker.name];
             const { supabase } = await import("@/lib/supabase");
-            await supabase.from("players").update({ mates: pickerMates }).eq("id", picker.id);
-            await supabase.from("players").update({ mates: targetMates }).eq("id", target.id);
+            // Write both BEFORE advancing — parallel for speed
+            await Promise.all([
+              supabase.from("players").update({ mates: pickerMates }).eq("id", picker.id),
+              supabase.from("players").update({ mates: targetMates }).eq("id", target.id),
+            ]);
           }
           await advanceTurn();
         }
@@ -423,24 +427,27 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           if (next.size >= ps.length) {
             // All voted: tally and resolve
             (async () => {
-              const allActions = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/player_actions?room_code=eq.${code}&card_id=eq.${card.id}&action_type=eq.vote`,
-                {
-                  headers: {
-                    apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                    authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-                  },
-                },
-              ).then(r => r.json()).catch(() => []);
-              if (!Array.isArray(allActions)) return;
-              const aCount = allActions.filter((a: { payload: { choice?: string } }) => a.payload.choice === "a").length;
-              const bCount = allActions.filter((a: { payload: { choice?: string } }) => a.payload.choice === "b").length;
-              let losers: PlayerRow[] = [];
-              if (aCount === bCount) losers = ps;
-              else if (aCount < bCount) losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "a");
-              else losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "b");
-              const penalties = losers.map(p => ({ player_name: p.name, sips: card.drink_penalty, shots: 0, reason: "MANJINA PIJE!" }));
-              await applyAndAdvance(penalties);
+              try {
+                const { supabase } = await import("@/lib/supabase");
+                const { data: allActions } = await supabase
+                  .from("player_actions")
+                  .select("player_id, payload")
+                  .eq("room_code", code)
+                  .eq("card_id", card.id)
+                  .eq("action_type", "vote");
+                if (!Array.isArray(allActions)) { await advanceTurn(); return; }
+                const aCount = allActions.filter((a: { payload: { choice?: string } }) => a.payload.choice === "a").length;
+                const bCount = allActions.filter((a: { payload: { choice?: string } }) => a.payload.choice === "b").length;
+                let losers: PlayerRow[] = [];
+                if (aCount === bCount) losers = ps;
+                else if (aCount < bCount) losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "a");
+                else losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "b");
+                const penalties = losers.map(p => ({ player_name: p.name, sips: card.drink_penalty, shots: 0, reason: "MANJINA PIJE!" }));
+                await applyAndAdvance(penalties);
+              } catch (err) {
+                console.error("Vote tally failed:", err);
+                await advanceTurn();
+              }
             })();
           }
           return next;
@@ -462,27 +469,30 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           next.add(action.player_id);
           if (next.size >= ps.length) {
             (async () => {
-              const allActions = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/player_actions?room_code=eq.${code}&card_id=eq.${card.id}&action_type=eq.vote`,
-                {
-                  headers: {
-                    apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                    authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-                  },
-                },
-              ).then(r => r.json()).catch(() => []);
-              if (!Array.isArray(allActions)) return;
-              const tally: Record<string, number> = {};
-              for (const a of allActions) {
-                const t = (a.payload as { target_name?: string }).target_name;
-                if (t) tally[t] = (tally[t] || 0) + 1;
-              }
-              if (Object.keys(tally).length > 0) {
-                const max = Math.max(...Object.values(tally));
-                const winners = Object.entries(tally).filter(([, c]) => c === max).map(([n]) => n);
-                const penalties = winners.map(name => ({ player_name: name, sips: card.drink_penalty, shots: 0, reason: `${max} glasova!` }));
-                await applyAndAdvance(penalties);
-              } else {
+              try {
+                const { supabase } = await import("@/lib/supabase");
+                const { data: allActions } = await supabase
+                  .from("player_actions")
+                  .select("player_id, payload")
+                  .eq("room_code", code)
+                  .eq("card_id", card.id)
+                  .eq("action_type", "vote");
+                if (!Array.isArray(allActions)) { await advanceTurn(); return; }
+                const tally: Record<string, number> = {};
+                for (const a of allActions) {
+                  const t = (a.payload as { target_name?: string }).target_name;
+                  if (t) tally[t] = (tally[t] || 0) + 1;
+                }
+                if (Object.keys(tally).length > 0) {
+                  const max = Math.max(...Object.values(tally));
+                  const winners = Object.entries(tally).filter(([, c]) => c === max).map(([n]) => n);
+                  const penalties = winners.map(name => ({ player_name: name, sips: card.drink_penalty, shots: 0, reason: `${max} glasova!` }));
+                  await applyAndAdvance(penalties);
+                } else {
+                  await advanceTurn();
+                }
+              } catch (err) {
+                console.error("Most Likely tally failed:", err);
                 await advanceTurn();
               }
             })();
@@ -677,8 +687,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
                 🎴 Vuci kartu
               </button>
               <button onClick={skipCard}
-                disabled={state.card_phase !== "show"}
-                className="bg-[#28508C] hover:bg-[#3264B4] text-white text-xs py-2 rounded disabled:opacity-30 disabled:cursor-not-allowed">
+                className="bg-[#28508C] hover:bg-[#3264B4] text-white text-xs py-2 rounded">
                 ⏭ Sljedeci red (preskoci)
               </button>
             </div>
