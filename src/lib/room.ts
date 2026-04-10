@@ -172,6 +172,32 @@ export async function clearActionsForCard(roomCode: string, cardId: string): Pro
     .eq("card_id", cardId);
 }
 
+export async function resetRoomToLobby(roomCode: string): Promise<void> {
+  await updateRoomState(roomCode, emptyGameState());
+  // Reset all player stats
+  await supabase
+    .from("players")
+    .update({
+      total_sips: 0,
+      total_shots: 0,
+      chickened_out_count: 0,
+      drinks_caused: 0,
+      cards_drawn: 0,
+      mates: [],
+    })
+    .eq("room_code", roomCode);
+  // Clear all actions
+  await supabase.from("player_actions").delete().eq("room_code", roomCode);
+}
+
+export async function deleteRoom(roomCode: string): Promise<void> {
+  await supabase.from("rooms").delete().eq("code", roomCode);
+}
+
+export async function kickPlayer(playerId: string): Promise<void> {
+  await supabase.from("players").delete().eq("id", playerId);
+}
+
 export function subscribeToRoom(
   roomCode: string,
   onChange: (state: GameState) => void,

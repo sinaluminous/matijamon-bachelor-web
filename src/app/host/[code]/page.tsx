@@ -1,38 +1,50 @@
 "use client";
 
 import { useEffect, useState, useCallback, use, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import {
   getRoom, updateRoomState, getPlayers, applyDrinks,
   subscribeToRoom, subscribeToPlayers, subscribeToActions,
+  resetRoomToLobby, deleteRoom, kickPlayer, emptyGameState,
 } from "@/lib/room";
 import {
   drawCard, applyGroomTax, applyMates, ROUND_NAMES, ROUND_SUBTITLES,
   CARD_COLORS, formatDrinks, getDrunkComment,
 } from "@/lib/cards";
-import type { GameState, GameCard, PlayerRow, DrinkPenalty, VoteState } from "@/lib/supabase";
+import type { GameState, GameCard, PlayerRow, DrinkPenalty } from "@/lib/supabase";
 import { spriteUrl } from "@/lib/fighters";
+import playlist from "@/data/playlist.json";
 
 const CARDS_PER_ROUND = 30;
 
+interface PlaylistTrack { name: string; url: string; fighter_id: string | null; }
+
 export default function HostPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
+  const router = useRouter();
   const [state, setState] = useState<GameState | null>(null);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [joinUrl, setJoinUrl] = useState("");
-  const [pendingPenalties, setPendingPenalties] = useState<DrinkPenalty[]>([]);
-  const [showSplash, setShowSplash] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioStarted, setAudioStarted] = useState(false);
+  const [musicVolume, setMusicVolume] = useState(0.3);
+  const [musicMuted, setMusicMuted] = useState(false);
+  const [currentTrack, setCurrentTrack] = useState<string>("");
+  const [showAdminPanel, setShowAdminPanel] = useState(true);
+  const [voteTally, setVoteTally] = useState<Record<string, number>>({});
+  const [actedPlayerIds, setActedPlayerIds] = useState<Set<string>>(new Set());
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onYes: () => void } | null>(null);
+  const [showKickMenu, setShowKickMenu] = useState(false);
 
-  // Set join URL based on current location
+  const tracks = playlist as PlaylistTrack[];
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       setJoinUrl(`${window.location.origin}/play/${code}`);
     }
   }, [code]);
 
-  // Initial load
   useEffect(() => {
     (async () => {
       const room = await getRoom(code);
@@ -42,231 +54,89 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
     })();
   }, [code]);
 
-  // Subscribe to room state changes
   useEffect(() => {
-    return subscribeToRoom(code, (newState) => setState(newState));
+    return subscribeToRoom(code, (newState) => {
+      setState(newState);
+      // Reset vote state when card changes
+      if (!newState.current_card) {
+        setVoteTally({});
+        setActedPlayerIds(new Set());
+      }
+    });
   }, [code]);
 
-  // Subscribe to player changes
   useEffect(() => {
     return subscribeToPlayers(code, (ps) => setPlayers(ps));
   }, [code]);
 
-  // Subscribe to player actions and resolve them server-side (host)
-  useEffect(() => {
-    return subscribeToActions(code, async (action) => {
-      // Always re-fetch fresh state because closure may be stale
-      const room = await getRoom(code);
-      if (!room) return;
-      const fresh = room.state;
-      const ps = await getPlayers(code);
-      if (!fresh.current_card) return;
-
-      // Player asked to draw their card on their turn
-      if (action.action_type === "draw_card" && fresh.card_phase === "draw") {
-        // The host's drawNewCard runs from the TV side, but allow phones to trigger it too
-        const isGroomTurn = ps[fresh.current_player_idx]?.is_groom || false;
-        const card = drawCard({
-          currentRound: fresh.current_round,
-          isGroomTurn,
-          bossFightCooldown: 99,
-        });
-        await updateRoomState(code, { ...fresh, current_card: card, card_phase: "show" });
-        return;
-      }
-
-      // Truth/Dare/Groom Special: did_it or chickened
-      if (fresh.current_card && action.action_type === "did_it") {
-        // No drink for the player; just advance
-        await advanceTurnInternal(code, fresh, ps);
-        return;
-      }
-      if (fresh.current_card && action.action_type === "chicken") {
-        const player = ps.find(p => p.id === action.player_id);
-        if (player) {
-          let penalties: DrinkPenalty[] = [{
-            player_name: player.name,
-            sips: fresh.current_card.drink_penalty_skip,
-            shots: 0,
-            reason: "KUKAVICA!",
-          }];
-          penalties = applyMates(penalties, ps);
-          penalties = applyGroomTax(penalties, ps, fresh.current_round);
-          await applyDrinks(code, penalties);
-        }
-        await advanceTurnInternal(code, fresh, ps);
-        return;
-      }
-
-      // Pick card (who_in_room, mate)
-      if (fresh.current_card && action.action_type === "pick") {
-        const targetName = (action.payload as { target_name?: string }).target_name;
-        if (targetName) {
-          let penalties: DrinkPenalty[] = [{
-            player_name: targetName,
-            sips: fresh.current_card.drink_penalty,
-            shots: 0,
-            reason: `${targetName} pije ${fresh.current_card.drink_penalty}!`,
-          }];
-          penalties = applyMates(penalties, ps);
-          penalties = applyGroomTax(penalties, ps, fresh.current_round);
-          await applyDrinks(code, penalties);
-        }
-        await advanceTurnInternal(code, fresh, ps);
-        return;
-      }
-
-      // Vote cards (most_likely, hot_take, wyr): collect all votes, then resolve
-      if (fresh.current_card && action.action_type === "vote") {
-        // Re-fetch action count for this card
-        const allActions = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/player_actions?room_code=eq.${code}&card_id=eq.${fresh.current_card.id}&action_type=eq.vote`,
-          {
-            headers: {
-              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-              authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-            },
-          },
-        ).then(r => r.json()).catch(() => []);
-
-        // Wait until all players have voted
-        if (Array.isArray(allActions) && allActions.length >= ps.length) {
-          await resolveVoteCard(code, fresh, ps, allActions);
-        }
-      }
-    });
-  }, [code]);
-
-  async function advanceTurnInternal(roomCode: string, currentState: GameState, ps: PlayerRow[]) {
-    const newCardsInRound = currentState.cards_in_round + 1;
-    let newRound = currentState.current_round;
-    let cardsInRound = newCardsInRound;
-    let phase: GameState["phase"] = currentState.phase;
-
-    if (newCardsInRound >= CARDS_PER_ROUND) {
-      if (currentState.current_round < 3) {
-        newRound = currentState.current_round + 1;
-        cardsInRound = 0;
-      } else {
-        phase = "ended";
-      }
-    }
-    const newPlayerIdx = (currentState.current_player_idx + 1) % ps.length;
-    await updateRoomState(roomCode, {
-      ...currentState,
-      current_player_idx: newPlayerIdx,
-      cards_in_round: cardsInRound,
-      total_cards_drawn: currentState.total_cards_drawn + 1,
-      current_round: newRound,
-      current_card: null,
-      card_phase: "draw",
-      vote_state: null,
-      phase,
-    });
-  }
-
-  async function resolveVoteCard(
-    roomCode: string,
-    currentState: GameState,
-    ps: PlayerRow[],
-    actions: Array<{ player_id: string; payload: { choice?: string; target_name?: string } }>,
-  ) {
-    const card = currentState.current_card;
-    if (!card) return;
-
-    let penalties: DrinkPenalty[] = [];
-
-    if (card.card_type === "wyr" || card.card_type === "hot_take") {
-      const aCount = actions.filter(a => a.payload.choice === "a").length;
-      const bCount = actions.filter(a => a.payload.choice === "b").length;
-      let losers: typeof ps = [];
-      if (aCount === bCount) {
-        losers = ps;
-      } else if (aCount < bCount) {
-        losers = ps.filter(p => actions.find(a => a.player_id === p.id)?.payload.choice === "a");
-      } else {
-        losers = ps.filter(p => actions.find(a => a.player_id === p.id)?.payload.choice === "b");
-      }
-      penalties = losers.map(p => ({
-        player_name: p.name,
-        sips: card.drink_penalty,
-        shots: 0,
-        reason: "MANJINA PIJE!",
-      }));
-    } else if (card.card_type === "most_likely") {
-      const tally: Record<string, number> = {};
-      for (const a of actions) {
-        const t = a.payload.target_name;
-        if (t) tally[t] = (tally[t] || 0) + 1;
-      }
-      if (Object.keys(tally).length > 0) {
-        const max = Math.max(...Object.values(tally));
-        const winners = Object.entries(tally).filter(([, c]) => c === max).map(([n]) => n);
-        penalties = winners.map(name => ({
-          player_name: name,
-          sips: card.drink_penalty,
-          shots: 0,
-          reason: `${max} glasova!`,
-        }));
-      }
-    }
-
-    penalties = applyMates(penalties, ps);
-    penalties = applyGroomTax(penalties, ps, currentState.current_round);
-    await applyDrinks(roomCode, penalties);
-    await advanceTurnInternal(roomCode, currentState, ps);
-  }
-
-  // Wake lock so TV doesn't sleep
+  // Wake lock
   useEffect(() => {
     let wakeLock: WakeLockSentinel | null = null;
-    if ("wakeLock" in navigator) {
+    if (typeof navigator !== "undefined" && "wakeLock" in navigator) {
       navigator.wakeLock.request("screen").then(w => { wakeLock = w; }).catch(() => {});
     }
-    return () => {
-      if (wakeLock) wakeLock.release().catch(() => {});
-    };
+    return () => { if (wakeLock) wakeLock.release().catch(() => {}); };
   }, []);
+
+  // Music: random track from a phase pool
+  const playRandomTrack = useCallback((phasePool?: string[]) => {
+    if (!audioRef.current || !audioStarted) return;
+    let candidates: PlaylistTrack[];
+    if (phasePool && phasePool.length > 0) {
+      candidates = tracks.filter(t => phasePool.some(name => t.name.includes(name)));
+      if (candidates.length === 0) candidates = tracks;
+    } else {
+      candidates = tracks;
+    }
+    const t = candidates[Math.floor(Math.random() * candidates.length)];
+    audioRef.current.src = t.url;
+    audioRef.current.volume = musicMuted ? 0 : musicVolume;
+    audioRef.current.play().catch(() => {});
+    setCurrentTrack(t.name);
+  }, [tracks, audioStarted, musicVolume, musicMuted]);
+
+  const nextTrack = () => playRandomTrack();
+  const togglePause = () => {
+    if (!audioRef.current) return;
+    if (audioRef.current.paused) audioRef.current.play().catch(() => {});
+    else audioRef.current.pause();
+  };
+  const toggleMute = () => {
+    setMusicMuted(m => {
+      const next = !m;
+      if (audioRef.current) audioRef.current.volume = next ? 0 : musicVolume;
+      return next;
+    });
+  };
+
+  // ────────────────────────────────────────────────────────────────────
+  // GAME ACTIONS (host-controlled)
+  // ────────────────────────────────────────────────────────────────────
 
   const startGame = async () => {
     if (!state || players.length < 2) return;
     setAudioStarted(true);
     const newState: GameState = {
       ...state,
-      phase: "playing",
-      current_round: 1,
-      cards_in_round: 0,
-      total_cards_drawn: 0,
-      current_player_idx: 0,
-      card_phase: "draw",
+      phase: "playing", current_round: 1, cards_in_round: 0,
+      total_cards_drawn: 0, current_player_idx: 0, card_phase: "draw",
     };
     await updateRoomState(code, newState);
-    playPhaseMusic("round1");
+    setTimeout(() => playRandomTrack(["Still DRE", "Africa", "Beat It", "Holy Diver"]), 100);
   };
 
   const drawNewCard = async () => {
     if (!state || players.length === 0) return;
     const isGroomTurn = players[state.current_player_idx]?.is_groom || false;
-    const card = drawCard({
-      currentRound: state.current_round,
-      isGroomTurn,
-      bossFightCooldown: 99,
-    });
-    const newState: GameState = {
-      ...state,
-      current_card: card,
-      card_phase: "show",
-      vote_state: card.target_type === "vote"
-        ? { type: card.card_type === "wyr" || card.card_type === "hot_take" ? "binary" : "group_pick", votes: {} }
-        : null,
-    };
-    await updateRoomState(code, newState);
+    const card = drawCard({ currentRound: state.current_round, isGroomTurn, bossFightCooldown: 99 });
+    setVoteTally({});
+    setActedPlayerIds(new Set());
+    await updateRoomState(code, { ...state, current_card: card, card_phase: "show" });
   };
 
-  const advanceTurn = async () => {
+  const advanceTurn = useCallback(async () => {
     if (!state || players.length === 0) return;
     const newCardsInRound = state.cards_in_round + 1;
-    const newTotalCards = state.total_cards_drawn + 1;
     let newRound = state.current_round;
     let cardsInRound = newCardsInRound;
     let phase: GameState["phase"] = state.phase;
@@ -275,55 +145,307 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
       if (state.current_round < 3) {
         newRound = state.current_round + 1;
         cardsInRound = 0;
-        phase = "round_transition";
-        playPhaseMusic(`round${newRound}`);
+        const phasePools: Record<number, string[]> = {
+          2: ["Killing In", "Thunderstruck", "Faint", "Bodies"],
+          3: ["Enter Sandman", "Chop Suey", "Duality", "Through The Fire"],
+        };
+        playRandomTrack(phasePools[newRound]);
       } else {
         phase = "ended";
+        playRandomTrack(["We Are The Champions"]);
       }
     }
-
     const newPlayerIdx = (state.current_player_idx + 1) % players.length;
-    const newState: GameState = {
-      ...state,
-      current_player_idx: newPlayerIdx,
-      cards_in_round: cardsInRound,
-      total_cards_drawn: newTotalCards,
-      current_round: newRound,
-      current_card: null,
-      card_phase: "draw",
-      vote_state: null,
-      phase,
-    };
-    await updateRoomState(code, newState);
+    await updateRoomState(code, {
+      ...state, current_player_idx: newPlayerIdx, cards_in_round: cardsInRound,
+      total_cards_drawn: state.total_cards_drawn + 1, current_round: newRound,
+      current_card: null, card_phase: "draw", vote_state: null, phase,
+    });
+    setVoteTally({});
+    setActedPlayerIds(new Set());
+  }, [state, players, code, playRandomTrack]);
+
+  // Apply drinks helper
+  const applyAndAdvance = useCallback(async (penalties: DrinkPenalty[]) => {
+    if (!state) return;
+    const withMates = applyMates(penalties, players);
+    const withTax = applyGroomTax(withMates, players, state.current_round);
+    await applyDrinks(code, withTax);
+    await advanceTurn();
+  }, [state, players, code, advanceTurn]);
+
+  // Admin actions
+  const skipCard = async () => {
+    if (!state) return;
+    await advanceTurn();
   };
 
-  const playPhaseMusic = useCallback((phase: string) => {
-    if (!audioStarted) return;
-    // Random track from playlist matching the phase mood
-    const tracks: Record<string, string[]> = {
-      round1: ["/music/12_SINA/Still DRE - Dr Dre feat Snoop Dogg.mp3", "/music/06_DENIS/Africa - Toto.mp3"],
-      round2: ["/music/01_PASKO/Killing In The Name - RATM.mp3", "/music/13_MATIJA/Thunderstruck - ACDC.mp3"],
-      round3: ["/music/04_FIXX/Enter Sandman - Metallica.mp3", "/music/01_PASKO/Chop Suey - SOAD.mp3"],
-      victory: ["/music/11_RUKAVINA/We Are The Champions - Queen.mp3"],
-    };
-    const pool = tracks[phase] || tracks.round1;
-    const url = pool[Math.floor(Math.random() * pool.length)];
-    if (audioRef.current) {
-      audioRef.current.src = url;
-      audioRef.current.volume = 0.3;
-      audioRef.current.play().catch(() => {});
-    }
-  }, [audioStarted]);
+  const restartGame = () => {
+    setConfirmDialog({
+      message: "Sigurno restartati igru? Svi gutljaji se brisu, runda 1 ispocetka.",
+      onYes: async () => {
+        await resetRoomToLobby(code);
+        if (audioRef.current) audioRef.current.pause();
+        setVoteTally({});
+        setActedPlayerIds(new Set());
+        setConfirmDialog(null);
+      },
+    });
+  };
+
+  const endGameNow = () => {
+    setConfirmDialog({
+      message: "Sigurno zavrsiti igru? Idemo na rezultate.",
+      onYes: async () => {
+        if (state) await updateRoomState(code, { ...state, phase: "ended" });
+        playRandomTrack(["We Are The Champions"]);
+        setConfirmDialog(null);
+      },
+    });
+  };
+
+  const exitToHome = () => {
+    setConfirmDialog({
+      message: "Sigurno izaci? Soba se brise i svi se izbacuju.",
+      onYes: async () => {
+        if (audioRef.current) audioRef.current.pause();
+        await deleteRoom(code);
+        router.push("/");
+      },
+    });
+  };
+
+  const handleKickPlayer = (player: PlayerRow) => {
+    setConfirmDialog({
+      message: `Izbaciti ${player.name}?`,
+      onYes: async () => {
+        await kickPlayer(player.id);
+        setConfirmDialog(null);
+        setShowKickMenu(false);
+      },
+    });
+  };
+
+  const backToLobby = () => {
+    setConfirmDialog({
+      message: "Vratiti se u predvorje? Igraci ostaju ali se gutljaji brisu.",
+      onYes: async () => {
+        await resetRoomToLobby(code);
+        if (audioRef.current) audioRef.current.pause();
+        setVoteTally({});
+        setActedPlayerIds(new Set());
+        setConfirmDialog(null);
+      },
+    });
+  };
+
+  // ────────────────────────────────────────────────────────────────────
+  // PLAYER ACTION HANDLER
+  // ────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!state || state.phase !== "playing") return;
+
+    return subscribeToActions(code, async (action) => {
+      const room = await getRoom(code);
+      if (!room) return;
+      const fresh = room.state;
+      const ps = await getPlayers(code);
+      const card = fresh.current_card;
+
+      // 1. Player triggered "draw card" from their phone
+      if (action.action_type === "draw_card" && fresh.card_phase === "draw") {
+        const isGroomTurn = ps[fresh.current_player_idx]?.is_groom || false;
+        const newCard = drawCard({ currentRound: fresh.current_round, isGroomTurn, bossFightCooldown: 99 });
+        setVoteTally({});
+        setActedPlayerIds(new Set());
+        await updateRoomState(code, { ...fresh, current_card: newCard, card_phase: "show" });
+        return;
+      }
+
+      if (!card) return;
+
+      // 2. NHIE — collect "did/didn't" from everyone
+      if (card.card_type === "nhie" && action.action_type === "nhie_done") {
+        const did = (action.payload as { did?: boolean }).did;
+        const player = ps.find(p => p.id === action.player_id);
+        if (did && player) {
+          const penalties: DrinkPenalty[] = [{
+            player_name: player.name,
+            sips: card.drink_penalty,
+            shots: 0,
+            reason: "Ja sam!",
+          }];
+          const withMates = applyMates(penalties, ps);
+          const withTax = applyGroomTax(withMates, ps, fresh.current_round);
+          await applyDrinks(code, withTax);
+        }
+        // Track who acted
+        setActedPlayerIds(prev => {
+          const next = new Set(prev);
+          next.add(action.player_id);
+          // If everyone acted, advance
+          if (next.size >= ps.length) {
+            advanceTurn();
+          }
+          return next;
+        });
+        return;
+      }
+
+      // 3. Truth/Dare/Groom Special
+      if ((card.card_type === "truth" || card.card_type === "dare" || card.card_type === "groom_special")
+          && (action.action_type === "did_it" || action.action_type === "chicken")) {
+        const player = ps.find(p => p.id === action.player_id);
+        if (action.action_type === "chicken" && player) {
+          const penalties: DrinkPenalty[] = [{
+            player_name: player.name,
+            sips: card.drink_penalty_skip,
+            shots: 0,
+            reason: "KUKAVICA!",
+          }];
+          await applyAndAdvance(penalties);
+        } else {
+          // Groom special: groom drinks even if did
+          if (card.card_type === "groom_special" && player?.is_groom) {
+            const penalties: DrinkPenalty[] = [{
+              player_name: player.name,
+              sips: card.drink_penalty,
+              shots: 0,
+              reason: "Mladozenja pije svejedno!",
+            }];
+            await applyAndAdvance(penalties);
+          } else {
+            await advanceTurn();
+          }
+        }
+        return;
+      }
+
+      // 4. Pick (who_in_room, mate)
+      if ((card.card_type === "who_in_room" || card.card_type === "mate") && action.action_type === "pick") {
+        const targetName = (action.payload as { target_name?: string }).target_name;
+        if (card.card_type === "who_in_room" && targetName) {
+          const penalties: DrinkPenalty[] = [{
+            player_name: targetName,
+            sips: card.drink_penalty,
+            shots: 0,
+            reason: `${targetName} pije ${card.drink_penalty}!`,
+          }];
+          await applyAndAdvance(penalties);
+        } else if (card.card_type === "mate" && targetName) {
+          // Add mate relationship - just advance for now
+          await advanceTurn();
+        }
+        return;
+      }
+
+      // 5. Binary vote (wyr, hot_take)
+      if ((card.card_type === "wyr" || card.card_type === "hot_take") && action.action_type === "vote") {
+        const choice = (action.payload as { choice?: string }).choice;
+        if (!choice) return;
+        // Update tally
+        setVoteTally(prev => {
+          const next = { ...prev };
+          next[choice] = (next[choice] || 0) + 1;
+          return next;
+        });
+        setActedPlayerIds(prev => {
+          const next = new Set(prev);
+          next.add(action.player_id);
+          if (next.size >= ps.length) {
+            // All voted: tally and resolve
+            (async () => {
+              const allActions = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/player_actions?room_code=eq.${code}&card_id=eq.${card.id}&action_type=eq.vote`,
+                {
+                  headers: {
+                    apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                    authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+                  },
+                },
+              ).then(r => r.json()).catch(() => []);
+              if (!Array.isArray(allActions)) return;
+              const aCount = allActions.filter((a: { payload: { choice?: string } }) => a.payload.choice === "a").length;
+              const bCount = allActions.filter((a: { payload: { choice?: string } }) => a.payload.choice === "b").length;
+              let losers: PlayerRow[] = [];
+              if (aCount === bCount) losers = ps;
+              else if (aCount < bCount) losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "a");
+              else losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "b");
+              const penalties = losers.map(p => ({ player_name: p.name, sips: card.drink_penalty, shots: 0, reason: "MANJINA PIJE!" }));
+              await applyAndAdvance(penalties);
+            })();
+          }
+          return next;
+        });
+        return;
+      }
+
+      // 6. Most Likely To — group vote for a target
+      if (card.card_type === "most_likely" && action.action_type === "vote") {
+        const targetName = (action.payload as { target_name?: string }).target_name;
+        if (!targetName) return;
+        setVoteTally(prev => {
+          const next = { ...prev };
+          next[targetName] = (next[targetName] || 0) + 1;
+          return next;
+        });
+        setActedPlayerIds(prev => {
+          const next = new Set(prev);
+          next.add(action.player_id);
+          if (next.size >= ps.length) {
+            (async () => {
+              const allActions = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/player_actions?room_code=eq.${code}&card_id=eq.${card.id}&action_type=eq.vote`,
+                {
+                  headers: {
+                    apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                    authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+                  },
+                },
+              ).then(r => r.json()).catch(() => []);
+              if (!Array.isArray(allActions)) return;
+              const tally: Record<string, number> = {};
+              for (const a of allActions) {
+                const t = (a.payload as { target_name?: string }).target_name;
+                if (t) tally[t] = (tally[t] || 0) + 1;
+              }
+              if (Object.keys(tally).length > 0) {
+                const max = Math.max(...Object.values(tally));
+                const winners = Object.entries(tally).filter(([, c]) => c === max).map(([n]) => n);
+                const penalties = winners.map(name => ({ player_name: name, sips: card.drink_penalty, shots: 0, reason: `${max} glasova!` }));
+                await applyAndAdvance(penalties);
+              } else {
+                await advanceTurn();
+              }
+            })();
+          }
+          return next;
+        });
+        return;
+      }
+
+      // 7. Categories / Chaos / Rule — acknowledge to advance
+      if (action.action_type === "acknowledge") {
+        // Wait for current player to ack
+        const player = ps.find(p => p.id === action.player_id);
+        if (player && players[fresh.current_player_idx]?.id === player.id) {
+          await advanceTurn();
+        }
+        return;
+      }
+    });
+  }, [code, state, players, applyAndAdvance, advanceTurn]);
+
+  // ────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ────────────────────────────────────────────────────────────────────
 
   if (!state) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0c0c14] text-white">
-        Ucitavanje...
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center bg-[#0c0c14] text-white">Ucitavanje...</div>;
   }
 
-  // ── LOBBY PHASE ──
+  // ── LOBBY ──
   if (state.phase === "lobby") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0c14] text-white p-8">
@@ -331,26 +453,20 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
         <h2 className="text-5xl md:text-7xl font-bold text-[#DC3232] mb-12 tracking-wider">SPECIAL</h2>
 
         <div className="flex flex-col md:flex-row gap-12 items-center">
-          {/* QR Code */}
           <div className="bg-white p-6 rounded-2xl">
             <QRCodeSVG value={joinUrl} size={280} level="H" />
           </div>
-
-          {/* Join info */}
           <div className="text-center md:text-left">
             <p className="text-zinc-400 text-sm mb-2">SKENIRAJ S MOBITELOM</p>
             <p className="text-zinc-400 text-sm mb-4">ili udji na:</p>
-            <p className="text-2xl text-[#FFC828] mb-2 break-all">{joinUrl}</p>
+            <p className="text-xl text-[#FFC828] mb-2 break-all">{joinUrl}</p>
             <p className="text-zinc-500 text-xs mt-4 mb-2">KOD SOBE</p>
             <p className="text-7xl md:text-9xl font-bold text-[#FFC828] tracking-[0.2em]">{code}</p>
           </div>
         </div>
 
-        {/* Players list */}
         <div className="mt-12 w-full max-w-4xl">
-          <p className="text-center text-zinc-400 mb-4">
-            IGRACI: {players.length} / 15
-          </p>
+          <p className="text-center text-zinc-400 mb-4">IGRACI: {players.length} / 15</p>
           <div className="flex flex-wrap gap-4 justify-center">
             {players.map((p) => (
               <div key={p.id} className="bg-[#1a1a28] border border-[#FFC828]/30 rounded-lg p-3 flex flex-col items-center w-28">
@@ -364,79 +480,221 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
         </div>
 
         {players.length >= 2 && (
-          <button
-            onClick={startGame}
-            className="mt-8 bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-lg hover:bg-[#FFD850] active:scale-95 transition shadow-2xl animate-pulse-glow"
-          >
+          <button onClick={startGame}
+            className="mt-8 bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-lg hover:bg-[#FFD850] active:scale-95 transition shadow-2xl animate-pulse-glow">
             POKRENI IGRU
           </button>
         )}
+
+        {/* Lobby admin: exit + kick */}
+        <div className="mt-8 flex gap-3">
+          <button onClick={() => setShowKickMenu(s => !s)}
+            className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm px-4 py-2 rounded">
+            👥 Igraci ({players.length})
+          </button>
+          <button onClick={exitToHome}
+            className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm px-4 py-2 rounded">
+            ❌ Izlaz
+          </button>
+        </div>
+
+        {/* Kick menu in lobby */}
+        {showKickMenu && players.length > 0 && (
+          <div className="mt-3 p-3 bg-[#1a1a28] border border-zinc-700 rounded max-w-sm w-full">
+            <p className="text-xs text-zinc-500 mb-2 text-center">KLIKNI ZA IZBACITI</p>
+            {players.map(p => (
+              <button key={p.id} onClick={() => handleKickPlayer(p)}
+                className="w-full flex items-center gap-2 text-sm py-1.5 px-2 hover:bg-zinc-800 rounded">
+                <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-6 h-6 pixel-art" />
+                <span className="text-white truncate flex-1 text-left">{p.is_groom && "★"}{p.name}</span>
+                <span className="text-red-500">×</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Confirmation dialog */}
+        {confirmDialog && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
+            <div className="bg-[#1a1a28] border-4 border-[#FFC828] rounded-2xl p-8 max-w-md text-center">
+              <p className="text-xl text-white mb-6">{confirmDialog.message}</p>
+              <div className="flex gap-4 justify-center">
+                <button onClick={confirmDialog.onYes}
+                  className="bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-3 px-8 rounded-lg">DA</button>
+                <button onClick={() => setConfirmDialog(null)}
+                  className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-lg">NE</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <audio ref={audioRef} loop />
       </div>
     );
   }
 
-  // ── PLAYING PHASE ──
+  // ── PLAYING ──
   if (state.phase === "playing") {
     const currentPlayer = players[state.current_player_idx];
     const card = state.current_card;
 
     return (
-      <div className="min-h-screen flex flex-col bg-[#0c0c14] text-white">
-        {/* Top bar — round info */}
-        <div className="px-6 py-3 bg-black/40 flex justify-between items-center">
-          <div className="text-sm text-zinc-400">
-            Runda {state.current_round}: <span className="text-[#FFC828]">{ROUND_NAMES[state.current_round]}</span>
+      <div className="min-h-screen flex flex-col bg-[#0c0c14] text-white relative">
+        {/* TOP BAR */}
+        <div className="px-6 py-3 bg-black/60 flex justify-between items-center border-b border-[#FFC828]/30">
+          <div className="text-base">
+            <span className="text-zinc-400">Runda </span>
+            <span className="text-[#FFC828] font-bold">{state.current_round}</span>
+            <span className="text-zinc-400">: </span>
+            <span className="text-[#FFC828]">{ROUND_NAMES[state.current_round]}</span>
           </div>
-          <div className="text-sm text-zinc-400">
-            Karta {state.cards_in_round + 1}/{CARDS_PER_ROUND}
+          <div className="text-base text-zinc-400">
+            Karta <span className="text-white">{state.cards_in_round + 1}</span>/{CARDS_PER_ROUND}
           </div>
+          <button
+            onClick={() => setShowAdminPanel(p => !p)}
+            className="text-sm text-zinc-500 hover:text-white px-3 py-1 border border-zinc-700 rounded">
+            {showAdminPanel ? "Sakrij" : "Admin"}
+          </button>
         </div>
 
-        {/* Main content */}
-        <div className="flex-1 flex flex-col items-center justify-center p-8">
+        {/* WHOSE TURN — BIG INDICATOR */}
+        {currentPlayer && (
+          <div className="px-6 py-4 bg-gradient-to-r from-transparent via-[#FFC828]/10 to-transparent flex items-center justify-center gap-4">
+            <img src={spriteUrl(currentPlayer.fighter_id)} alt={currentPlayer.name} className="w-16 h-16 pixel-art" />
+            <div>
+              <p className="text-xs text-zinc-500 uppercase">Na potezu</p>
+              <p className="text-3xl text-[#FFC828] font-bold">
+                {currentPlayer.is_groom && "★ "}{currentPlayer.is_kum && "+ "}{currentPlayer.name}
+              </p>
+              <p className="text-xs text-zinc-400">
+                {formatDrinks(currentPlayer.total_sips, currentPlayer.total_shots)} • {getDrunkComment(currentPlayer.total_sips, currentPlayer.total_shots)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* MAIN CONTENT */}
+        <div className="flex-1 flex flex-col items-center justify-center px-8 py-4">
           {state.card_phase === "draw" && currentPlayer && (
             <div className="text-center">
-              <img
-                src={spriteUrl(currentPlayer.fighter_id)}
-                alt={currentPlayer.name}
-                className="w-48 h-48 mx-auto pixel-art animate-pulse-glow"
-              />
-              <h2 className="text-6xl text-[#FFC828] mt-6 mb-2">{currentPlayer.name}</h2>
-              <p className="text-zinc-400 text-xl mb-2">
-                {formatDrinks(currentPlayer.total_sips, currentPlayer.total_shots)}
-              </p>
-              <p className="text-zinc-500 text-sm mb-8">
-                {getDrunkComment(currentPlayer.total_sips, currentPlayer.total_shots)}
-              </p>
-              <button
-                onClick={drawNewCard}
-                className="bg-[#FFC828] text-black font-bold py-6 px-12 text-3xl rounded-xl hover:bg-[#FFD850] transition animate-pulse-glow"
-              >
-                VUCI KARTU
+              <p className="text-2xl text-zinc-400 mb-6">Cekamo da {currentPlayer.name} izvuce kartu...</p>
+              <button onClick={drawNewCard}
+                className="bg-[#FFC828] text-black font-bold py-6 px-12 text-3xl rounded-xl hover:bg-[#FFD850] transition animate-pulse-glow">
+                🎴 VUCI KARTU
               </button>
             </div>
           )}
 
           {state.card_phase === "show" && card && (
-            <CardDisplay card={card} />
+            <CardDisplay card={card} voteTally={voteTally} actedCount={actedPlayerIds.size} totalPlayers={players.length} />
           )}
         </div>
 
-        {/* Bottom HUD — players bar */}
-        <PlayerHUD players={players} currentPlayerName={currentPlayer?.name} />
+        {/* BOTTOM HUD — Players */}
+        <PlayerHUD players={players} currentPlayerName={currentPlayer?.name} actedPlayerIds={actedPlayerIds} />
 
-        {/* Hidden audio element */}
-        <audio ref={audioRef} loop />
+        {/* ADMIN PANEL — Right side */}
+        {showAdminPanel && (
+          <div className="fixed top-20 right-4 bg-black/90 border-2 border-[#FFC828]/50 rounded-lg p-3 w-64 z-40 max-h-[calc(100vh-100px)] overflow-y-auto">
+            <p className="text-xs text-[#FFC828] mb-2 font-bold flex items-center justify-between">
+              ADMIN <span className="text-[9px] text-zinc-600">SOBA: {code}</span>
+            </p>
 
-        {/* Test controls (host only) */}
-        {state.card_phase === "show" && (
-          <button
-            onClick={advanceTurn}
-            className="fixed top-4 right-4 bg-zinc-800 text-white px-4 py-2 rounded text-sm"
-          >
-            Sljedeci →
-          </button>
+            {/* Game flow controls */}
+            <p className="text-[9px] text-zinc-500 mb-1 mt-2">TIJEK IGRE</p>
+            <div className="flex flex-col gap-1.5">
+              <button onClick={drawNewCard}
+                disabled={state.card_phase !== "draw"}
+                className="bg-[#28A050] hover:bg-[#3CB464] text-white text-xs py-2 rounded disabled:opacity-30 disabled:cursor-not-allowed">
+                🎴 Vuci kartu
+              </button>
+              <button onClick={skipCard}
+                disabled={state.card_phase !== "show"}
+                className="bg-[#28508C] hover:bg-[#3264B4] text-white text-xs py-2 rounded disabled:opacity-30 disabled:cursor-not-allowed">
+                ⏭ Sljedeci red (preskoci)
+              </button>
+            </div>
+
+            {/* Game state controls */}
+            <p className="text-[9px] text-zinc-500 mb-1 mt-3">UPRAVLJANJE</p>
+            <div className="flex flex-col gap-1.5">
+              <button onClick={() => setShowKickMenu(s => !s)}
+                className="bg-[#7828A0] hover:bg-[#9438C0] text-white text-xs py-2 rounded">
+                👥 Igraci ({players.length})
+              </button>
+              <button onClick={backToLobby}
+                className="bg-[#B46414] hover:bg-[#D47828] text-white text-xs py-2 rounded">
+                🏠 U predvorje
+              </button>
+              <button onClick={restartGame}
+                className="bg-[#B46414] hover:bg-[#D47828] text-white text-xs py-2 rounded">
+                🔄 Restartaj igru
+              </button>
+              <button onClick={endGameNow}
+                className="bg-[#DC3232] hover:bg-[#FF4848] text-white text-xs py-2 rounded">
+                🏁 Zavrsi → rezultati
+              </button>
+              <button onClick={exitToHome}
+                className="bg-zinc-700 hover:bg-zinc-600 text-white text-xs py-2 rounded">
+                ❌ Izlaz iz igre
+              </button>
+            </div>
+
+            {/* Player list / kick menu */}
+            {showKickMenu && (
+              <div className="mt-2 p-2 bg-zinc-900 rounded border border-zinc-700">
+                <p className="text-[9px] text-zinc-500 mb-1">KLIKNI ZA IZBACITI</p>
+                {players.map(p => (
+                  <button key={p.id} onClick={() => handleKickPlayer(p)}
+                    className="w-full flex items-center gap-2 text-xs py-1 px-1 hover:bg-zinc-800 rounded">
+                    <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-5 h-5 pixel-art" />
+                    <span className="text-white truncate flex-1 text-left">{p.is_groom && "★"}{p.name}</span>
+                    <span className="text-zinc-500 text-[9px]">{p.total_sips}g</span>
+                    <span className="text-red-500">×</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Music controls */}
+            <p className="text-[9px] text-zinc-500 mb-1 mt-3">MUZIKA</p>
+            {currentTrack && <p className="text-[9px] text-zinc-400 mb-2 truncate">♪ {currentTrack}</p>}
+            <div className="flex gap-1 mb-2">
+              <button onClick={togglePause} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded">⏯</button>
+              <button onClick={nextTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded">⏭</button>
+              <button onClick={toggleMute} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded">{musicMuted ? "🔇" : "🔊"}</button>
+            </div>
+            <input type="range" min="0" max="100" value={musicVolume * 100}
+              onChange={(e) => {
+                const v = parseInt(e.target.value) / 100;
+                setMusicVolume(v);
+                if (audioRef.current && !musicMuted) audioRef.current.volume = v;
+              }}
+              className="w-full" />
+          </div>
         )}
+
+        {/* Confirmation dialog overlay */}
+        {confirmDialog && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
+            <div className="bg-[#1a1a28] border-4 border-[#FFC828] rounded-2xl p-8 max-w-md text-center">
+              <p className="text-xl text-white mb-6">{confirmDialog.message}</p>
+              <div className="flex gap-4 justify-center">
+                <button onClick={confirmDialog.onYes}
+                  className="bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-3 px-8 rounded-lg">
+                  DA
+                </button>
+                <button onClick={() => setConfirmDialog(null)}
+                  className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-lg">
+                  NE
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <audio ref={audioRef} loop />
       </div>
     );
   }
@@ -447,16 +705,58 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0c14] text-white p-8">
         <h1 className="text-6xl text-[#FFC828] mb-8">JUTRO POSLIJE</h1>
-        <div className="space-y-2 max-w-2xl w-full">
+        <div className="space-y-2 max-w-2xl w-full mb-8">
           {ranked.map((p, i) => (
             <div key={p.id} className="flex items-center gap-4 bg-[#1a1a28] p-3 rounded-lg">
               <span className="text-2xl text-[#FFC828] w-12">{i + 1}.</span>
               <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-12 h-12 pixel-art" />
-              <span className="text-xl flex-1">{p.name}{p.is_groom && " *"}{p.is_kum && " +"}</span>
+              <span className="text-xl flex-1">{p.name}{p.is_groom && " ★"}{p.is_kum && " +"}</span>
               <span className="text-xl text-[#FFC828]">{formatDrinks(p.total_sips, p.total_shots)}</span>
             </div>
           ))}
         </div>
+
+        {/* End-screen admin actions */}
+        <div className="flex flex-wrap gap-3 justify-center">
+          <button onClick={async () => {
+              await resetRoomToLobby(code);
+              if (audioRef.current) audioRef.current.pause();
+              setVoteTally({});
+              setActedPlayerIds(new Set());
+            }}
+            className="bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-3 px-6 rounded-lg">
+            🔄 NOVA IGRA
+          </button>
+          <button onClick={async () => {
+              await resetRoomToLobby(code);
+              if (audioRef.current) audioRef.current.pause();
+              setVoteTally({});
+              setActedPlayerIds(new Set());
+            }}
+            className="bg-[#28508C] hover:bg-[#3264B4] text-white font-bold py-3 px-6 rounded-lg">
+            🏠 U PREDVORJE
+          </button>
+          <button onClick={exitToHome}
+            className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg">
+            ❌ IZLAZ
+          </button>
+        </div>
+
+        {confirmDialog && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
+            <div className="bg-[#1a1a28] border-4 border-[#FFC828] rounded-2xl p-8 max-w-md text-center">
+              <p className="text-xl text-white mb-6">{confirmDialog.message}</p>
+              <div className="flex gap-4 justify-center">
+                <button onClick={confirmDialog.onYes}
+                  className="bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-3 px-8 rounded-lg">DA</button>
+                <button onClick={() => setConfirmDialog(null)}
+                  className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-lg">NE</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <audio ref={audioRef} loop />
       </div>
     );
   }
@@ -464,63 +764,108 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
   return null;
 }
 
-// ── CARD DISPLAY ──
-function CardDisplay({ card }: { card: GameCard }) {
+// ────────────────────────────────────────────────────────────────────────────
+// CARD DISPLAY (the big TV view)
+// ────────────────────────────────────────────────────────────────────────────
+
+function CardDisplay({ card, voteTally, actedCount, totalPlayers }: {
+  card: GameCard; voteTally: Record<string, number>; actedCount: number; totalPlayers: number;
+}) {
   const colors = CARD_COLORS[card.card_type as keyof typeof CARD_COLORS];
+
   return (
-    <div
-      className="rounded-2xl border-4 p-12 max-w-4xl w-full shadow-2xl"
-      style={{
-        backgroundColor: colors?.bg || "#333",
-        borderColor: colors?.accent || "#888",
-        color: colors?.text || "#fff",
-      }}
-    >
-      <h2 className="text-3xl md:text-5xl font-bold text-center mb-2 tracking-wider">
-        {card.title}
-      </h2>
-      <div className="border-t-2 my-6 opacity-50" style={{ borderColor: colors?.accent }} />
-      <p className="text-2xl md:text-4xl text-center leading-relaxed py-8">
-        {card.content}
-      </p>
-      {card.content_b && (
-        <>
-          <p className="text-center text-xl my-4 opacity-70">— ILI —</p>
-          <p className="text-2xl md:text-4xl text-center leading-relaxed py-8">
-            {card.content_b}
-          </p>
-        </>
+    <div className="w-full max-w-5xl">
+      <div
+        className="rounded-2xl border-4 p-12 shadow-2xl"
+        style={{
+          backgroundColor: colors?.bg || "#333",
+          borderColor: colors?.accent || "#888",
+          color: colors?.text || "#fff",
+        }}
+      >
+        <h2 className="text-3xl md:text-5xl font-bold text-center mb-2 tracking-wider">{card.title}</h2>
+        <div className="border-t-2 my-6 opacity-50" style={{ borderColor: colors?.accent }} />
+
+        <p className="text-2xl md:text-4xl text-center leading-relaxed py-8">{card.content}</p>
+
+        {card.content_b && (
+          <>
+            <p className="text-center text-xl my-4 opacity-70">— ILI —</p>
+            <p className="text-2xl md:text-4xl text-center leading-relaxed py-8">{card.content_b}</p>
+          </>
+        )}
+
+        {card.instruction && (
+          <p className="text-center text-xl mt-6" style={{ color: colors?.accent }}>{card.instruction}</p>
+        )}
+
+        {card.is_groom_targeted && (
+          <p className="text-center text-2xl mt-4 text-[#FFC828] animate-pulse">★ MLADOZENJA ★</p>
+        )}
+      </div>
+
+      {/* Live vote tally for vote cards */}
+      {(card.card_type === "wyr" || card.card_type === "hot_take") && Object.keys(voteTally).length > 0 && (
+        <div className="mt-6 flex justify-center gap-8 text-2xl">
+          <div className="text-[#28A050]">
+            {card.card_type === "hot_take" ? "ZA" : "A"}: {voteTally.a || 0}
+          </div>
+          <div className="text-[#DC3232]">
+            {card.card_type === "hot_take" ? "PROTIV" : "B"}: {voteTally.b || 0}
+          </div>
+        </div>
       )}
-      {card.instruction && (
-        <p className="text-center text-xl mt-6" style={{ color: colors?.accent }}>
-          {card.instruction}
-        </p>
+
+      {/* Most Likely live tally */}
+      {card.card_type === "most_likely" && Object.keys(voteTally).length > 0 && (
+        <div className="mt-6 max-w-md mx-auto">
+          {Object.entries(voteTally).sort((a, b) => b[1] - a[1]).map(([name, count]) => (
+            <div key={name} className="flex items-center gap-3 mb-1">
+              <span className="text-white text-lg w-32 truncate">{name}</span>
+              <div className="flex-1 bg-zinc-800 rounded h-3">
+                <div className="bg-[#FFC828] h-3 rounded" style={{ width: `${(count / totalPlayers) * 100}%` }} />
+              </div>
+              <span className="text-[#FFC828] text-lg w-8">{count}</span>
+            </div>
+          ))}
+        </div>
       )}
-      {card.is_groom_targeted && (
-        <p className="text-center text-2xl mt-4 text-[#FFC828] animate-pulse">
-          ★ MLADOZENJA ★
+
+      {/* Action progress for any voting card */}
+      {(card.card_type === "nhie" || card.card_type === "wyr" || card.card_type === "hot_take" || card.card_type === "most_likely") && (
+        <p className="text-center text-zinc-400 mt-4 text-sm">
+          {actedCount} / {totalPlayers} glasovalo
         </p>
       )}
     </div>
   );
 }
 
-// ── PLAYER HUD ──
-function PlayerHUD({ players, currentPlayerName }: { players: PlayerRow[]; currentPlayerName?: string }) {
+// ────────────────────────────────────────────────────────────────────────────
+// PLAYER HUD (bottom of TV)
+// ────────────────────────────────────────────────────────────────────────────
+
+function PlayerHUD({ players, currentPlayerName, actedPlayerIds }: {
+  players: PlayerRow[]; currentPlayerName?: string; actedPlayerIds: Set<string>;
+}) {
   return (
     <div className="bg-black/80 border-t-2 border-[#FFC828] py-2 px-2">
       <div className="flex gap-1 justify-around overflow-x-auto">
         {players.map((p) => {
           const isCurrent = p.name === currentPlayerName;
+          const hasActed = actedPlayerIds.has(p.id);
           return (
-            <div
-              key={p.id}
-              className={`flex flex-col items-center min-w-[60px] px-1 py-1 rounded ${
+            <div key={p.id}
+              className={`flex flex-col items-center min-w-[64px] px-1 py-1 rounded transition ${
                 isCurrent ? "bg-[#FFC828]/20 border border-[#FFC828]" : ""
-              }`}
-            >
-              <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-8 h-8 pixel-art" />
-              <p className={`text-[8px] mt-1 ${isCurrent ? "text-[#FFC828]" : "text-white"}`}>
+              } ${hasActed ? "opacity-100" : "opacity-80"}`}>
+              <div className="relative">
+                <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-10 h-10 pixel-art" />
+                {hasActed && (
+                  <span className="absolute -top-1 -right-1 text-green-400 text-xs">✓</span>
+                )}
+              </div>
+              <p className={`text-[8px] mt-0.5 ${isCurrent ? "text-[#FFC828]" : "text-white"}`}>
                 {p.is_groom && "★"}{p.name.slice(0, 7)}
               </p>
               <p className="text-[8px] text-[#FFC828]">{p.total_sips}g{p.total_shots > 0 && ` ${p.total_shots}sh`}</p>
