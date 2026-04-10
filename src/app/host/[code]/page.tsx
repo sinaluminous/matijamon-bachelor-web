@@ -937,88 +937,90 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
         {/* ADMIN PANEL — Right side */}
         {showAdminPanel && (
-          <div className="fixed top-20 right-4 bg-black/90 border-2 border-[#FFC828]/50 rounded-lg p-3 w-64 z-40 max-h-[calc(100vh-100px)] overflow-y-auto">
-            <p className="text-xs text-[#FFC828] mb-2 font-bold flex items-center justify-between">
-              ADMIN <span className="text-[9px] text-zinc-600">SOBA: {code}</span>
+          <div className="fixed top-20 right-4 bg-black/90 border-2 border-[#FFC828]/50 rounded-lg p-4 w-96 z-40 max-h-[calc(100vh-100px)] overflow-y-auto shadow-2xl">
+            <p className="text-base text-[#FFC828] mb-3 font-bold flex items-center justify-between">
+              ADMIN <span className="text-xs text-zinc-500">SOBA: {code}</span>
             </p>
 
             {/* Game flow controls */}
-            <p className="text-[9px] text-zinc-500 mb-1 mt-2">TIJEK IGRE</p>
-            <div className="flex flex-col gap-1.5">
+            <p className="text-xs text-zinc-500 mb-2 mt-2 tracking-wider">TIJEK IGRE</p>
+            <div className="grid grid-cols-2 gap-2">
               <button onClick={drawNewCard}
                 disabled={state.card_phase !== "draw"}
-                className="bg-[#28A050] hover:bg-[#3CB464] text-white text-xs py-2 rounded disabled:opacity-30 disabled:cursor-not-allowed">
+                className="bg-[#28A050] hover:bg-[#3CB464] text-white text-sm py-2.5 rounded disabled:opacity-30 disabled:cursor-not-allowed">
                 🎴 Vuci kartu
               </button>
               <button onClick={skipCard}
-                className="bg-[#28508C] hover:bg-[#3264B4] text-white text-xs py-2 rounded">
-                ⏭ Sljedeci red (preskoci)
+                className="bg-[#28508C] hover:bg-[#3264B4] text-white text-sm py-2.5 rounded">
+                ⏭ Preskoci
               </button>
             </div>
 
             {/* Game state controls */}
-            <p className="text-[9px] text-zinc-500 mb-1 mt-3">UPRAVLJANJE</p>
-            <div className="flex flex-col gap-1.5">
+            <p className="text-xs text-zinc-500 mb-2 mt-4 tracking-wider">UPRAVLJANJE</p>
+            <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setShowKickMenu(s => !s)}
-                className="bg-[#7828A0] hover:bg-[#9438C0] text-white text-xs py-2 rounded">
+                className="bg-[#7828A0] hover:bg-[#9438C0] text-white text-sm py-2.5 rounded">
                 👥 Igraci ({players.length})
               </button>
               <button onClick={backToLobby}
-                className="bg-[#B46414] hover:bg-[#D47828] text-white text-xs py-2 rounded">
-                🏠 U predvorje
+                className="bg-[#B46414] hover:bg-[#D47828] text-white text-sm py-2.5 rounded">
+                🏠 Predvorje
               </button>
               <button onClick={restartGame}
-                className="bg-[#B46414] hover:bg-[#D47828] text-white text-xs py-2 rounded">
-                🔄 Restartaj igru
+                className="bg-[#B46414] hover:bg-[#D47828] text-white text-sm py-2.5 rounded">
+                🔄 Restartaj
               </button>
               <button onClick={endGameNow}
-                className="bg-[#DC3232] hover:bg-[#FF4848] text-white text-xs py-2 rounded">
-                🏁 Zavrsi → rezultati
+                className="bg-[#DC3232] hover:bg-[#FF4848] text-white text-sm py-2.5 rounded">
+                🏁 Zavrsi
               </button>
               <button onClick={exitToHome}
-                className="bg-zinc-700 hover:bg-zinc-600 text-white text-xs py-2 rounded">
+                className="bg-zinc-700 hover:bg-zinc-600 text-white text-sm py-2.5 rounded col-span-2">
                 ❌ Izlaz iz igre
               </button>
             </div>
 
             {/* Player list / kick menu */}
             {showKickMenu && (
-              <div className="mt-2 p-2 bg-zinc-900 rounded border border-zinc-700">
-                <p className="text-[9px] text-zinc-500 mb-1">KLIKNI ZA IZBACITI</p>
+              <div className="mt-3 p-2 bg-zinc-900 rounded border border-zinc-700">
+                <p className="text-xs text-zinc-500 mb-1">KLIKNI ZA IZBACITI</p>
                 {players.map(p => (
                   <button key={p.id} onClick={() => handleKickPlayer(p)}
-                    className="w-full flex items-center gap-2 text-xs py-1 px-1 hover:bg-zinc-800 rounded">
-                    <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-5 h-5 pixel-art" />
-                    <span className="text-white truncate flex-1 text-left">{p.is_groom && "★"}{p.name}</span>
-                    <span className="text-zinc-500 text-[9px]">{p.total_sips}g</span>
-                    <span className="text-red-500">×</span>
+                    className="w-full flex items-center gap-2 text-sm py-1.5 px-2 hover:bg-zinc-800 rounded">
+                    <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-6 h-6 pixel-art" />
+                    <span className="text-white truncate flex-1 text-left">{p.is_groom && "★ "}{p.name}</span>
+                    <span className="text-zinc-500 text-xs">{p.total_sips}g</span>
+                    <span className="text-red-500 text-base">×</span>
                   </button>
                 ))}
               </div>
             )}
 
             {/* Music controls */}
-            <p className="text-[9px] text-zinc-500 mb-1 mt-3">MUZIKA</p>
-            <div className="bg-black/50 rounded px-2 py-1 mb-2 h-5 overflow-hidden">
-              {currentTrack ? <ScrollingText text={`♪ ${currentTrack}`} /> : <p className="text-[9px] text-zinc-600">— nema —</p>}
+            <p className="text-xs text-zinc-500 mb-2 mt-4 tracking-wider">MUZIKA</p>
+            <div className="bg-black/50 rounded-lg px-3 py-2 mb-2 h-9 overflow-hidden border border-zinc-800 flex items-center">
+              {currentTrack
+                ? <ScrollingText text={`♪ ${currentTrack}`} />
+                : <p className="text-sm text-zinc-600">— nema pjesme —</p>}
             </div>
-            <div className="flex gap-1 mb-2">
-              <button onClick={prevTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded" title="Prosla">⏮</button>
-              <button onClick={togglePause} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded" title={musicPaused ? "Reproduciraj" : "Pauziraj"}>{musicPaused ? "▶" : "⏸"}</button>
-              <button onClick={nextTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded" title="Sljedeca">⏭</button>
-              <button onClick={toggleMute} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs py-1.5 rounded" title={musicMuted ? "Ukljuci zvuk" : "Iskljuci zvuk"}>{musicMuted ? "🔇" : "🔊"}</button>
+            <div className="flex gap-1.5 mb-2">
+              <button onClick={prevTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title="Prosla">⏮</button>
+              <button onClick={togglePause} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title={musicPaused ? "Reproduciraj" : "Pauziraj"}>{musicPaused ? "▶" : "⏸"}</button>
+              <button onClick={nextTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title="Sljedeca">⏭</button>
+              <button onClick={toggleMute} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title={musicMuted ? "Ukljuci zvuk" : "Iskljuci zvuk"}>{musicMuted ? "🔇" : "🔊"}</button>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[8px] text-zinc-600 w-6 text-right">{Math.round(musicVolume * 100)}%</span>
+              <span className="text-xs text-zinc-500 w-10 text-right">{Math.round(musicVolume * 100)}%</span>
               <input type="range" min="0" max="100" value={musicVolume * 100}
                 onChange={(e) => {
                   const v = parseInt(e.target.value) / 100;
                   setMusicVolume(v);
                   if (audioRef.current && !musicMuted) audioRef.current.volume = v;
                 }}
-                className="flex-1" />
+                className="flex-1 accent-[#FFC828]" />
             </div>
-            <p className="text-[9px] text-zinc-600 mt-1 text-center">{tracks.length} pjesama</p>
+            <p className="text-xs text-zinc-600 mt-2 text-center">{tracks.length} pjesama u listi</p>
           </div>
         )}
 
@@ -1122,16 +1124,23 @@ function ScrollingText({ text }: { text: string }) {
 
   useEffect(() => {
     if (!ref.current || !innerRef.current) return;
-    const containerW = ref.current.clientWidth;
-    const textW = innerRef.current.scrollWidth;
-    setNeedsScroll(textW > containerW);
+    const measure = () => {
+      if (!ref.current || !innerRef.current) return;
+      const containerW = ref.current.clientWidth;
+      const textW = innerRef.current.scrollWidth;
+      setNeedsScroll(textW > containerW + 2);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(ref.current);
+    return () => ro.disconnect();
   }, [text]);
 
   return (
-    <div ref={ref} className="relative w-full h-full overflow-hidden whitespace-nowrap">
+    <div ref={ref} className="relative w-full h-full overflow-hidden whitespace-nowrap flex items-center">
       <div
         ref={innerRef}
-        className={`text-[9px] text-zinc-300 inline-block ${needsScroll ? "animate-marquee" : ""}`}
+        className={`text-sm text-zinc-200 inline-block ${needsScroll ? "animate-marquee" : ""}`}
         style={needsScroll ? { paddingLeft: "100%" } : {}}
       >
         {text}
