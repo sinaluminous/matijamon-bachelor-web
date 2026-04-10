@@ -13,6 +13,8 @@ import {
 import type { GameCard, DrinkPenalty } from "@/lib/supabase";
 import { FIGHTERS, spriteUrl } from "@/lib/fighters";
 import playlist from "@/data/playlist.json";
+import { BattleScene } from "@/components/BattleScene";
+import { createBattleState, executeTurn, type BattleState as MatijamonBattleState } from "@/lib/battle";
 
 const CARDS_PER_ROUND = 30;
 
@@ -32,7 +34,19 @@ interface LocalPlayer {
 interface PlaylistTrack { name: string; url: string; fighter_id: string | null; }
 
 type Phase = "setup" | "playing" | "ended";
-type CardPhase = "draw" | "show" | "voting" | "result";
+type CardPhase = "draw" | "show" | "voting" | "result" | "battle";
+
+interface ActiveBattle {
+  state: MatijamonBattleState;
+  p1Player: LocalPlayer;
+  p2Player: LocalPlayer;
+  p1Move: number | null;
+  p2Move: number | null;
+  selectingFor: "p1" | "p2";
+  selectedMoveIdx: number;
+  message: string;
+  resolved: boolean;
+}
 
 export default function LocalGamePage() {
   const router = useRouter();
@@ -47,6 +61,7 @@ export default function LocalGamePage() {
   const [showAdminPanel, setShowAdminPanel] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onYes: () => void } | null>(null);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [battle, setBattle] = useState<ActiveBattle | null>(null);
 
   // Music
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -153,9 +168,123 @@ export default function LocalGamePage() {
     const isGroomTurn = players[currentPlayerIdx]?.is_groom || false;
     const newCard = drawCard({ currentRound, isGroomTurn, bossFightCooldown: 99 });
     setCard(newCard);
-    setCardPhase("show");
     setVoteState(null);
     setResultMessage(null);
+
+    // Boss fight: start a Matijamon battle between two random players
+    if (newCard.card_type === "boss_fight" && players.length >= 2) {
+      // Pick current player + random other
+      const p1 = players[currentPlayerIdx];
+      const others = players.filter(p => p.id !== p1.id);
+      const p2 = others[Math.floor(Math.random() * others.length)];
+      const battleState = createBattleState(p1.fighter_id, p2.fighter_id);
+      setBattle({
+        state: battleState,
+        p1Player: p1,
+        p2Player: p2,
+        p1Move: null,
+        p2Move: null,
+        selectingFor: "p1",
+        selectedMoveIdx: 0,
+        message: `${p1.name} VS ${p2.name}!`,
+        resolved: false,
+      });
+      setCardPhase("battle");
+      // Switch to battle music
+      const battleTracks = ["Thunderstruck", "Killing In", "Enter Sandman", "Mortal Kombat"];
+      playRandomTrack(battleTracks);
+    } else {
+      setCardPhase("show");
+    }
+  };
+
+  // Battle handlers
+  const handleBattleMoveSelect = (idx: number) => {
+    if (!battle) return;
+    setBattle({ ...battle, selectedMoveIdx: idx });
+  };
+
+  const handleBattleMoveConfirm = () => {
+    if (!battle) return;
+    if (battle.selectingFor === "p1") {
+      // Lock p1 move, switch to p2
+      const newBattle = {
+        ...battle,
+        p1Move: battle.selectedMoveIdx,
+        selectingFor: "p2" as const,
+        selectedMoveIdx: 0,
+        message: `${battle.p2Player.name}, odaberi potez!`,
+      };
+      setBattle(newBattle);
+    } else {
+      // Both moves picked → execute turn
+      const p1MoveIdx = battle.p1Move ?? 0;
+      const p2MoveIdx = battle.selectedMoveIdx;
+      // Mutate battle state in place (executeTurn modifies it)
+      executeTurn(battle.state, p1MoveIdx, p2MoveIdx);
+      // Get last few events for message
+      const lastEvents = battle.state.log.slice(-8).filter(e => e.text);
+      const message = lastEvents.map(e => e.text).join(" ");
+
+      // Check for drink triggers
+      const drinkEvents = battle.state.log.slice(-12).filter(e => e.type === "drink_trigger");
+      const penalties: DrinkPenalty[] = [];
+      for (const ev of drinkEvents) {
+        if (!ev.drinkAmount) continue;
+        if (ev.drinkTarget === "attacker") {
+          // Last attacker is whoever's move just resolved
+          penalties.push({ player_name: battle.p1Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+        } else if (ev.drinkTarget === "defender") {
+          penalties.push({ player_name: battle.p2Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+        } else if (ev.drinkTarget === "spectators") {
+          for (const p of players) {
+            if (p.id !== battle.p1Player.id && p.id !== battle.p2Player.id) {
+              penalties.push({ player_name: p.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+            }
+          }
+        }
+      }
+      if (penalties.length > 0) applyDrinks(penalties);
+
+      if (battle.state.isOver) {
+        // Final KO penalties
+        const winnerName = battle.state.winnerId === battle.p1Player.fighter_id ? battle.p1Player.name : battle.p2Player.name;
+        const loserName = battle.state.winnerId === battle.p1Player.fighter_id ? battle.p2Player.name : battle.p1Player.name;
+        const koPenalties: DrinkPenalty[] = [{
+          player_name: loserName,
+          sips: 3,
+          shots: 0,
+          reason: `Gubitnik MATIJAMON borbe pije 3!`,
+        }];
+        applyDrinks(koPenalties);
+        setBattle({
+          ...battle,
+          state: battle.state,
+          message: `${winnerName} POBJEDJUJE! ${loserName} pije 3.`,
+          resolved: true,
+          p1Move: null,
+          selectingFor: "p1",
+          selectedMoveIdx: 0,
+        });
+      } else {
+        // Continue: reset for next turn
+        setBattle({
+          ...battle,
+          state: battle.state,
+          message: message || `Sljedeci red. ${battle.p1Player.name}, odaberi potez!`,
+          p1Move: null,
+          selectingFor: "p1",
+          selectedMoveIdx: 0,
+        });
+      }
+    }
+  };
+
+  const finishBattle = () => {
+    setBattle(null);
+    setCardPhase("draw");
+    setCard(null);
+    advanceTurn();
   };
 
   const applyDrinks = useCallback((penalties: DrinkPenalty[]) => {
@@ -477,6 +606,34 @@ export default function LocalGamePage() {
             <h2 className="text-4xl text-[#FFC828] mb-6">REZULTAT</h2>
             <pre className="text-xl text-white whitespace-pre-wrap font-sans">{resultMessage}</pre>
             <button onClick={advanceTurn} className="mt-6 bg-[#FFC828] text-black font-bold py-3 px-8 rounded-lg">DALJE</button>
+          </div>
+        )}
+
+        {cardPhase === "battle" && battle && (
+          <div className="w-full max-w-5xl">
+            <div className="text-center mb-3">
+              <p className="text-zinc-500 text-xs">BOSS FIGHT</p>
+              <p className="text-2xl text-[#FFC828]">
+                {battle.selectingFor === "p1" ? battle.p1Player.name : battle.p2Player.name}, odaberi potez!
+              </p>
+            </div>
+            <BattleScene
+              state={battle.resolved ? battle.state : (battle.selectingFor === "p1" ? battle.state : { ...battle.state, player1: battle.state.player2, player2: battle.state.player1 })}
+              showMoves={!battle.resolved}
+              selectedMoveIdx={battle.selectedMoveIdx}
+              onMoveSelect={handleBattleMoveSelect}
+              onMoveConfirm={handleBattleMoveConfirm}
+              currentMessage={battle.message}
+              mode="host"
+            />
+            {battle.resolved && (
+              <div className="text-center mt-4">
+                <button onClick={finishBattle}
+                  className="bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-xl hover:bg-[#FFD850] active:scale-95">
+                  KRAJ BORBE
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

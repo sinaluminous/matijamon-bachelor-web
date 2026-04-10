@@ -1,0 +1,1300 @@
+[
+  {
+    "id": "matija",
+    "name": "MATIJA",
+    "title": "The Groom",
+    "types": [
+      "alcohol"
+    ],
+    "tags": [
+      "Musician"
+    ],
+    "passive": "Blackout + Beer Phases",
+    "passive_desc": "0-2 beers: normal. 3-4: ALL stats +2 (UNSTOPPABLE). 5+: chaos, random type, self-damage. Weed at 3+ = obliterated.",
+    "stats": {
+      "HP": 8,
+      "Atk": 8,
+      "Def": 6,
+      "SpA": 8,
+      "SpD": 6,
+      "Spe": 8
+    },
+    "flavor": "THE GROOM. Small but MIGHTY. Unstoppable at 3 beers. Chaos at 5+. Biker.",
+    "moves": [
+      {
+        "name": "Chug Beer",
+        "type": "alcohol",
+        "category": "status",
+        "power": 0,
+        "description": "+1 beer. Heal or self-damage."
+      },
+      {
+        "name": "Groom's Fury",
+        "type": "neutral",
+        "category": "physical",
+        "power": 120,
+        "description": "Wedding rage. 3-4 beers: 140. 5+: 180 random."
+      },
+      {
+        "name": "Crossfade Chaos",
+        "type": "weed",
+        "category": "special",
+        "power": 100,
+        "description": "3+ beers: Crisis both sides."
+      },
+      {
+        "name": "Mystery Substance",
+        "type": "neutral",
+        "category": "special",
+        "power": 0,
+        "description": "5+ only. Random drug. Random effect."
+      },
+      {
+        "name": "Slovenian Toast",
+        "type": "alcohol",
+        "category": "special",
+        "power": 70,
+        "description": "+1 beer. At 3-4: heal 15%."
+      },
+      {
+        "name": "Small Man Syndrome",
+        "type": "neutral",
+        "category": "physical",
+        "power": 80,
+        "description": "Lower HP = more power."
+      },
+      {
+        "name": "Groom's Speech",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Clear debuffs. Spe +1."
+      },
+      {
+        "name": "Bachelor's Last Stand",
+        "type": "alcohol",
+        "category": "physical",
+        "power": 130,
+        "description": "40% acc. Both drop to 1 HP."
+      },
+      {
+        "name": "Bike Charge",
+        "type": "neutral",
+        "category": "physical",
+        "power": 90,
+        "description": "20% bike breaks. 3-4 beers: 130."
+      },
+      {
+        "name": "ANTI-PROTIVAN",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Block next attack completely. Once per battle."
+      },
+      {
+        "name": "Loveable",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Enemy skips turn + Atk -1. Charming."
+      }
+    ]
+  },
+  {
+    "id": "goran",
+    "name": "GORAN",
+    "title": "The Retired Champion",
+    "types": [
+      "alcohol"
+    ],
+    "tags": [],
+    "passive": "Blackout + Iron Liver",
+    "passive_desc": "5 stacks to get Drunk (not 3). 24-beer box is a warmup.",
+    "stats": {
+      "HP": 9,
+      "Atk": 9,
+      "Def": 7,
+      "SpA": 6,
+      "SpD": 5,
+      "Spe": 5
+    },
+    "flavor": "Vice champion taekwondo. 40 now. Horde orc main. LOK'TAR OGAR. 24-beer man.",
+    "moves": [
+      {
+        "name": "Beer Box Barrage",
+        "type": "alcohol",
+        "category": "physical",
+        "power": 30,
+        "description": "2-5 hits. 20% crit each."
+      },
+      {
+        "name": "Roundhouse Kick",
+        "type": "neutral",
+        "category": "physical",
+        "power": 95,
+        "description": "100% acc. NEVER misses. 15% flinch."
+      },
+      {
+        "name": "Chug Gajba",
+        "type": "alcohol",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 50%. Intimidates weed types only."
+      },
+      {
+        "name": "FOR THE HORDE!",
+        "type": "neutral",
+        "category": "physical",
+        "power": 130,
+        "description": "65% acc. LOK'TAR OGAR! Power 130."
+      },
+      {
+        "name": "Blood Fury",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Atk +2, Spe +1. Once per battle. Orc racial."
+      },
+      {
+        "name": "Side Kick",
+        "type": "neutral",
+        "category": "physical",
+        "power": 65,
+        "description": "Quick. 10% flinch. Reliable."
+      },
+      {
+        "name": "Beer Cannon",
+        "type": "alcohol",
+        "category": "special",
+        "power": 75,
+        "description": "35% Drunk status."
+      },
+      {
+        "name": "Shield Wall",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Def +2. 50% less dmg next turn."
+      }
+    ]
+  },
+  {
+    "id": "mislav",
+    "name": "MISLAV",
+    "title": "The IT Berserker",
+    "types": [
+      "alcohol",
+      "weed"
+    ],
+    "tags": [
+      "Musician"
+    ],
+    "passive": "Blackout + Rage Quit",
+    "passive_desc": "Below 25% HP: Speed doubles, next attack guaranteed crit. Comeback king.",
+    "stats": {
+      "HP": 7,
+      "Atk": 7,
+      "Def": 5,
+      "SpA": 8,
+      "SpD": 6,
+      "Spe": 7
+    },
+    "flavor": "IT Berserker. Banjo. Motorcycle. D&D. Gamer. LOUD. Flexible. Fine round butts are his weakness. The tomato tie is an inside joke.",
+    "moves": [
+      {
+        "name": "Gamer Rage",
+        "type": "neutral",
+        "category": "physical",
+        "power": 80,
+        "description": "Double pwr if hit last turn."
+      },
+      {
+        "name": "Beer & Bong",
+        "type": "alcohol",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 15%, SpA +1."
+      },
+      {
+        "name": "Lag Spike",
+        "type": "neutral",
+        "category": "special",
+        "power": 70,
+        "description": "Enemy skips turn."
+      },
+      {
+        "name": "Rage Quit",
+        "type": "neutral",
+        "category": "physical",
+        "power": 130,
+        "description": "Throw controller. Tilted after."
+      },
+      {
+        "name": "AFK",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 30 HP, Def +1. Skip next turn."
+      },
+      {
+        "name": "Headshot",
+        "type": "neutral",
+        "category": "special",
+        "power": 95,
+        "description": "If crits: flinch. 360 NO SCOPE."
+      },
+      {
+        "name": "Respawn",
+        "type": "weed",
+        "category": "status",
+        "power": 0,
+        "pp": 3,
+        "description": "Heal 100%, clear status."
+      },
+      {
+        "name": "Combo Attack",
+        "type": "neutral",
+        "category": "physical",
+        "power": 35,
+        "description": "3 hits. All 3 = Spe -1."
+      }
+    ]
+  },
+  {
+    "id": "marin",
+    "name": "MARIN",
+    "title": "The Doctor of Substances",
+    "types": [
+      "alcohol",
+      "weed"
+    ],
+    "tags": [
+      "Dad",
+      "Musician"
+    ],
+    "passive": "Blackout + Bad Trip PTSD",
+    "passive_desc": "2x WEAK to Psychedelic damage (trauma). Psychedelic hits also cause Spe -1 (flashback).",
+    "stats": {
+      "HP": 8,
+      "Atk": 4,
+      "Def": 7,
+      "SpA": 10,
+      "SpD": 7,
+      "Spe": 5
+    },
+    "flavor": "PhD Chemistry. Born same day as Pasko. Bad shroom trip once. Wife and kid.",
+    "moves": [
+      {
+        "name": "Chemical Formula",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 100,
+        "description": "95% acc. PhD privilege."
+      },
+      {
+        "name": "Mushroom Flashback",
+        "type": "psychedelics",
+        "category": "status",
+        "power": 0,
+        "description": "Bad Trip on enemy. 10% self-recoil."
+      },
+      {
+        "name": "Thesis Defense",
+        "type": "neutral",
+        "category": "special",
+        "power": 70,
+        "description": "SpA -1. 3 uses = sleep."
+      },
+      {
+        "name": "Lab Explosion",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 130,
+        "description": "15% burn. HIGH RISK."
+      },
+      {
+        "name": "Periodic Table Slam",
+        "type": "neutral",
+        "category": "physical",
+        "power": 80,
+        "description": "If enemy statused: 110 pwr."
+      },
+      {
+        "name": "Measured Pour",
+        "type": "alcohol",
+        "category": "special",
+        "power": 60,
+        "description": "Damage + heal 10%."
+      },
+      {
+        "name": "Peer Review",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Strip enemy top buff + extra -1."
+      }
+    ]
+  },
+  {
+    "id": "stipe",
+    "name": "STIPE",
+    "title": "The Cosmic Salad Chef",
+    "types": [
+      "psychedelics",
+      "amphetamines"
+    ],
+    "tags": [],
+    "passive": "Ego Death",
+    "passive_desc": "Below 50% HP: stats shuffle. Jokes land 70% of the time. Changes career monthly.",
+    "no_overclock": true,
+    "stats": {
+      "HP": 8,
+      "Atk": 8,
+      "Def": 5,
+      "SpA": 9,
+      "SpD": 6,
+      "Spe": 7
+    },
+    "flavor": "Waiter. Mystic. Salad god. Philosopher. Changes life path every month.",
+    "moves": [
+      {
+        "name": "God-Tier Salad",
+        "type": "weed",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 35% + SpA +1. Dwarfs even meat."
+      },
+      {
+        "name": "Crack a Joke",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 80,
+        "description": "70% acc (canon). Confuse + SpD -1."
+      },
+      {
+        "name": "Life Path Change",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Atk/SpA down, Def/SpD up. Reinvent."
+      },
+      {
+        "name": "Speed Service",
+        "type": "amphetamines",
+        "category": "physical",
+        "power": 75,
+        "description": "Priority +1. Plate to face."
+      },
+      {
+        "name": "Philosophical Rant",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 70,
+        "description": "30% sleep. 30% SpA -1."
+      },
+      {
+        "name": "Salad Toss",
+        "type": "neutral",
+        "category": "physical",
+        "power": 55,
+        "description": "20% flinch (tomato in eye)."
+      },
+      {
+        "name": "Mystic Vision",
+        "type": "psychedelics",
+        "category": "status",
+        "power": 0,
+        "description": "See enemy's next 2 hands. SpD -1."
+      },
+      {
+        "name": "Career Change Punch",
+        "type": "amphetamines",
+        "category": "physical",
+        "power": 90,
+        "description": "Becomes boxer. Lasts 1 turn."
+      }
+    ]
+  },
+  {
+    "id": "braovic",
+    "name": "BRAOVIĆ",
+    "title": "The Sensei",
+    "types": [
+      "alcohol"
+    ],
+    "tags": [],
+    "passive": "Blackout + Sensei's Calm",
+    "passive_desc": "Immune to confusion and taunt (wisdom). After 3 Alcohol moves: RATCHET MODE — all non-Alcohol moves DISABLED. Remaining Alcohol moves get +50% power. The wise man is gone.",
+    "stats": {
+      "HP": 8,
+      "Atk": 6,
+      "Def": 7,
+      "SpA": 6,
+      "SpD": 9,
+      "Spe": 3
+    },
+    "flavor": "OLDEST. Sensei. WoW Horde raid leader. FOR THE HORDE. Moved to Japan, lives on a boat. Teaches kids English. Wise until the bottle's empty.",
+    "moves": [
+      {
+        "name": "Reject Dad's Condoms",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Enemy Def -2. 40% cower 3 turns."
+      },
+      {
+        "name": "Sensei's Wisdom",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "SpD +2, SpA +1. Quiet nod. Knows things."
+      },
+      {
+        "name": "Leeroy Jenkins",
+        "type": "alcohol",
+        "category": "physical",
+        "power": 120,
+        "description": "CHARGE. 20% recoil. At least he has chicken."
+      },
+      {
+        "name": "Sake Ceremony",
+        "type": "alcohol",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 30%. +1 Ratchet counter. Deliberate."
+      },
+      {
+        "name": "Anchor Toss",
+        "type": "neutral",
+        "category": "physical",
+        "power": 95,
+        "description": "Boat anchor. 30% trap 2 turns."
+      },
+      {
+        "name": "Warchief's Command",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "All stats +1. Once per battle. FOR THE HORDE."
+      },
+      {
+        "name": "English Lesson",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 65,
+        "description": "Confuses enemy. Repeat after me. LOUDER."
+      },
+      {
+        "name": "Katana Strike",
+        "type": "neutral",
+        "category": "physical",
+        "power": 85,
+        "description": "Clean cut. 25% crit. Japan steel."
+      },
+      {
+        "name": "Ratchet Rampage",
+        "type": "alcohol",
+        "category": "physical",
+        "power": 110,
+        "description": "3+ drinks only. Random target. Sensei is GONE."
+      }
+    ]
+  },
+  {
+    "id": "sina",
+    "name": "SINA",
+    "title": "The Tower of Smoke",
+    "types": [
+      "weed",
+      "weed"
+    ],
+    "tags": [
+      "Musician"
+    ],
+    "passive": "Munchies + Endless Roll",
+    "passive_desc": "Heals each turn. Auto-rolls joints. After 3: next Weed move 2x damage. 2.0x STAB. Whitey IMMUNE.",
+    "stats": {
+      "HP": 9,
+      "Atk": 5,
+      "Def": 5,
+      "SpA": 6,
+      "SpD": 8,
+      "Spe": 3
+    },
+    "flavor": "Tallest. Rapper. Perpetually stoned. F1 league (never wins). Hulkenberg energy.",
+    "moves": [
+      {
+        "name": "Smoke Cloud",
+        "type": "weed",
+        "category": "status",
+        "power": 0,
+        "description": "Enemy acc -1 for 3 turns. Self heal."
+      },
+      {
+        "name": "Spit Bars",
+        "type": "weed",
+        "category": "special",
+        "power": 80,
+        "description": "20% SpD -1. Sound. Doubles w/ Roll."
+      },
+      {
+        "name": "Rakija Shot",
+        "type": "alcohol",
+        "category": "special",
+        "power": 70,
+        "description": "30% burn. Surprise."
+      },
+      {
+        "name": "Flick Roach",
+        "type": "weed",
+        "category": "physical",
+        "power": 40,
+        "description": "Low hit BUT burn 3 turns."
+      },
+      {
+        "name": "Freestyle Rap",
+        "type": "weed",
+        "category": "special",
+        "power": 100,
+        "description": "Endless Roll boosted = PWR 400."
+      },
+      {
+        "name": "Towering Presence",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Enemy Atk -1. Self Def +1."
+      },
+      {
+        "name": "Contact High",
+        "type": "weed",
+        "category": "special",
+        "power": 50,
+        "description": "Never misses. Applies Stoned."
+      },
+      {
+        "name": "Munchies Run",
+        "type": "neutral",
+        "category": "physical",
+        "power": 60,
+        "description": "Tramples enemy. Heals 20%."
+      },
+      {
+        "name": "Hulkenberg Lap",
+        "type": "amphetamines",
+        "category": "special",
+        "power": 85,
+        "description": "CAN'T KO. Leaves at 1 HP. Stats -1."
+      },
+      {
+        "name": "Pit Strategy",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 20%, Spe +1. 30% tire falls off."
+      }
+    ]
+  },
+  {
+    "id": "denis",
+    "name": "DENIS",
+    "title": "The Sleepy Grappler",
+    "types": [
+      "alcohol"
+    ],
+    "tags": [
+      "Dad"
+    ],
+    "passive": "Blackout + Dad Energy",
+    "passive_desc": "15% dmg reduction from ALL sources. Constantly sleepy — 15% chance to nap (skip turn) but wakes up with Atk +1.",
+    "stats": {
+      "HP": 8,
+      "Atk": 8,
+      "Def": 8,
+      "SpA": 5,
+      "SpD": 9,
+      "Spe": 3
+    },
+    "flavor": "Matija's krizmani kum. Grappling/MMA. Programming. Constantly sleepy. Played bass once (turned to 0). NOTHING rattles this man.",
+    "moves": [
+      {
+        "name": "Rear Naked Choke",
+        "type": "neutral",
+        "category": "physical",
+        "power": 90,
+        "description": "If enemy Spe -1 or lower: power 120."
+      },
+      {
+        "name": "Takedown",
+        "type": "neutral",
+        "category": "physical",
+        "power": 70,
+        "description": "Enemy Spe -1. Sets up grappling."
+      },
+      {
+        "name": "Steady Drink",
+        "type": "alcohol",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 20%. No drama."
+      },
+      {
+        "name": "Guard Pull",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Def +2, SpD +1. Grounded."
+      },
+      {
+        "name": "Power Nap",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Skip turn. Heal 25%, Atk +1."
+      },
+      {
+        "name": "Dad Slam",
+        "type": "neutral",
+        "category": "physical",
+        "power": 85,
+        "description": "Simple. Reliable."
+      },
+      {
+        "name": "Arm Bar",
+        "type": "neutral",
+        "category": "physical",
+        "power": 75,
+        "description": "Enemy Atk -1. Submission hold."
+      },
+      {
+        "name": "Silent Stare",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Enemy Atk -1, SpA -1."
+      }
+    ]
+  },
+  {
+    "id": "bliki",
+    "name": "BLIKI",
+    "title": "The Loose Cannon",
+    "types": [
+      "alcohol",
+      "weed"
+    ],
+    "tags": [
+      "Half-Musician",
+      "Musician"
+    ],
+    "passive": "Blackout",
+    "passive_desc": "Survives 1 KO at 1 HP. Loose Cannon at 3 Alcohol moves: Atk +3, Def -2, random targeting.",
+    "stats": {
+      "HP": 8,
+      "Atk": 6,
+      "Def": 6,
+      "SpA": 7,
+      "SpD": 4,
+      "Spe": 4
+    },
+    "flavor": "Export/import. Dog named Bro. Yugoslav hymns. Gets LOUDER with each beer.",
+    "moves": [
+      {
+        "name": "Call Bro",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Dog barks. Enemy Def -2, SpD -1."
+      },
+      {
+        "name": "UŽIVAJ!",
+        "type": "alcohol",
+        "category": "status",
+        "power": 0,
+        "description": "Silences ANY type 2 turns. SpA -2."
+      },
+      {
+        "name": "Yugoslav Hymn",
+        "type": "alcohol",
+        "category": "special",
+        "power": 80,
+        "description": "Confuses. Loose Cannon: 120 power."
+      },
+      {
+        "name": "Crossfade",
+        "type": "weed",
+        "category": "special",
+        "power": 95,
+        "description": "30% self-confusion. Counts as Alcohol."
+      },
+      {
+        "name": "Beer Bottle Smash",
+        "type": "alcohol",
+        "category": "physical",
+        "power": 85,
+        "description": "30% burn. Counts as Alcohol."
+      },
+      {
+        "name": "Bro Maul",
+        "type": "neutral",
+        "category": "physical",
+        "power": 85,
+        "description": "Dog attacks. 25% flinch."
+      },
+      {
+        "name": "Export Import",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Steal enemy's highest stat buff."
+      },
+      {
+        "name": "Drunken Headbutt",
+        "type": "alcohol",
+        "category": "physical",
+        "power": 100,
+        "description": "15% confuse. 10% recoil."
+      }
+    ]
+  },
+  {
+    "id": "sasa",
+    "name": "SASA",
+    "title": "The Angry Stoner Coder",
+    "types": [
+      "weed"
+    ],
+    "tags": [
+      "Serbian"
+    ],
+    "passive": "Munchies + Serbian Pride",
+    "passive_desc": "Heals each turn. Vs Pasko/Stipe/Bliki: Atk+2, SpA+2. Vs Matija: -1 offensive.",
+    "stats": {
+      "HP": 6,
+      "Atk": 4,
+      "Def": 5,
+      "SpA": 9,
+      "SpD": 7,
+      "Spe": 6
+    },
+    "flavor": "Apple bong. Earl grey. git push --force. Angry at specific people.",
+    "moves": [
+      {
+        "name": "Apple Bong Hit",
+        "type": "weed",
+        "category": "special",
+        "power": 75,
+        "description": "Heal 15%. Functional stoner."
+      },
+      {
+        "name": "Debug Rage",
+        "type": "neutral",
+        "category": "special",
+        "power": 90,
+        "description": "Removes ALL enemy buffs."
+      },
+      {
+        "name": "Intellectual Flex",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Enemy SpA -2. 40% they get Atk +1."
+      },
+      {
+        "name": "Hotbox",
+        "type": "weed",
+        "category": "special",
+        "power": 60,
+        "description": "Delayed. Accuracy -2 for 3 turns."
+      },
+      {
+        "name": "Keyboard Smash",
+        "type": "neutral",
+        "category": "physical",
+        "power": 70,
+        "description": "20% flinch (keycap in eye)."
+      },
+      {
+        "name": "Tea Ceremony",
+        "type": "weed",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 20%, SpD +1, clear Stoned."
+      },
+      {
+        "name": "Serbian Curse",
+        "type": "neutral",
+        "category": "special",
+        "power": 85,
+        "description": "25% flinch. Vs grudge targets: 110."
+      },
+      {
+        "name": "Code Injection",
+        "type": "weed",
+        "category": "physical",
+        "power": 50,
+        "description": "Plant bug: 1/10 HP for 3 turns."
+      }
+    ]
+  },
+  {
+    "id": "fixx",
+    "name": "FIXX",
+    "title": "The Drum & Baseline",
+    "types": [
+      "amphetamines",
+      "weed"
+    ],
+    "tags": [
+      "Musician"
+    ],
+    "passive": "Overclock",
+    "passive_desc": "First attack ALWAYS crits. Redline: +20% dmg when outspeeding.",
+    "stats": {
+      "HP": 6,
+      "Atk": 7,
+      "Def": 5,
+      "SpA": 6,
+      "SpD": 4,
+      "Spe": 9
+    },
+    "flavor": "FASTEST. Drummer. BMW enthusiast. Coke + Jack & Coke. Loves F1 and girls.",
+    "moves": [
+      {
+        "name": "BMW Rundown",
+        "type": "amphetamines",
+        "category": "physical",
+        "power": 110,
+        "description": "BMW into enemy. 15% recoil."
+      },
+      {
+        "name": "Coke Line",
+        "type": "amphetamines",
+        "category": "status",
+        "power": 0,
+        "description": "Spe +2, Atk +1, Def -1."
+      },
+      {
+        "name": "Jack & Coke",
+        "type": "alcohol",
+        "category": "special",
+        "power": 65,
+        "description": "30% burn. Heals 10%."
+      },
+      {
+        "name": "Double Kick Drum",
+        "type": "amphetamines",
+        "category": "physical",
+        "power": 40,
+        "description": "50% chance to double damage. Both = flinch."
+      },
+      {
+        "name": "F1 Overtake",
+        "type": "amphetamines",
+        "category": "physical",
+        "power": 80,
+        "description": "Priority +1. If fastest: 110 pwr."
+      },
+      {
+        "name": "Smoke & Drive",
+        "type": "weed",
+        "category": "special",
+        "power": 90,
+        "description": "20% self-confusion."
+      },
+      {
+        "name": "Drum Solo",
+        "type": "amphetamines",
+        "category": "physical",
+        "power": 70,
+        "description": "1-3 hits. Sound. 15% flinch."
+      },
+      {
+        "name": "Pit Stop Cig",
+        "type": "weed",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 20%, Spe +1. Quick pit stop."
+      }
+    ]
+  },
+  {
+    "id": "covic",
+    "name": "COVIC",
+    "title": "The Demi-God",
+    "types": [
+      "alcohol"
+    ],
+    "tags": [
+      "Dyslexia"
+    ],
+    "passive": "Blackout + Demi-God",
+    "passive_desc": "Immune to Drunk. Berserk at 6 drinks (Atk 15, random). Dyslexia: 20% misread moves. Substance Annihilation: Weed/Psychedelic status = 3 turn shutdown.",
+    "stats": {
+      "HP": 10,
+      "Atk": 10,
+      "Def": 8,
+      "SpA": 6,
+      "SpD": 4,
+      "Spe": 3
+    },
+    "flavor": "STRONGEST. TANKIEST. Hard to rattle. Can drink 24 beers and still throw hands.",
+    "moves": [
+      {
+        "name": "Chug",
+        "type": "alcohol",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 25%. +1 Berserk counter."
+      },
+      {
+        "name": "Demi-God Slam",
+        "type": "alcohol",
+        "category": "physical",
+        "power": 120,
+        "description": "THE hit. Berserk: 180 power."
+      },
+      {
+        "name": "Buffet Raid",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 40%. Skip next turn."
+      },
+      {
+        "name": "Desperate Flirt",
+        "type": "neutral",
+        "category": "special",
+        "power": 40,
+        "description": "30% confuse self. She said no."
+      },
+      {
+        "name": "Deadlift",
+        "type": "neutral",
+        "category": "physical",
+        "power": 75,
+        "description": "Reliable. Atk +1 after."
+      },
+      {
+        "name": "Beer Shower",
+        "type": "alcohol",
+        "category": "special",
+        "power": 60,
+        "description": "40% Drunk status."
+      },
+      {
+        "name": "Headbutt",
+        "type": "alcohol",
+        "category": "physical",
+        "power": 95,
+        "description": "20% flinch. 10% recoil."
+      },
+      {
+        "name": "Law Brief",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "SpD +2, Def +1. If he can read it."
+      },
+      {
+        "name": "Misread the Menu",
+        "type": "alcohol",
+        "category": "special",
+        "power": 65,
+        "description": "Random: heal/plate hit/self-confuse."
+      },
+      {
+        "name": "O čem ćemo pričat",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Dismisses enemy. Enemy SpA -2, Spe -1. Rude."
+      }
+    ]
+  },
+  {
+    "id": "pasko",
+    "name": "PASKO",
+    "title": "The Junkie Rockstar",
+    "types": [
+      "all"
+    ],
+    "tags": [
+      "Musician",
+      "Junkie"
+    ],
+    "passive": "Jack of All Substances",
+    "passive_desc": "STAB on ALL types (1.25x). 15% typed dmg reduction. 80% Whitey immune.",
+    "stats": {
+      "HP": 7,
+      "Atk": 8,
+      "Def": 6,
+      "SpA": 9,
+      "SpD": 5,
+      "Spe": 8
+    },
+    "flavor": "Punk singer. ADD. Endless stories, zero brakes, and always ready to jump on stage.",
+    "moves": [
+      {
+        "name": "Play New Riff",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 90,
+        "description": "Seduces Musicians. Else self-confuse."
+      },
+      {
+        "name": "Body Count",
+        "type": "neutral",
+        "category": "physical",
+        "power": 90,
+        "description": "40 and counting. Intimidates. Enemy Atk -1."
+      },
+      {
+        "name": "Punk Scream",
+        "type": "alcohol",
+        "category": "special",
+        "power": 85,
+        "description": "Enemy SpD -1. Sound move."
+      },
+      {
+        "name": "STD Roulette",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 70,
+        "description": "Random debuff. Body count consequences."
+      },
+      {
+        "name": "ADD Hyperfocus",
+        "type": "amphetamines",
+        "category": "status",
+        "power": 0,
+        "description": "Next move: guaranteed hit+crit. Or forget."
+      },
+      {
+        "name": "Stage Dive",
+        "type": "neutral",
+        "category": "physical",
+        "power": 100,
+        "description": "Leaps off stage. KO = heal 20%."
+      },
+      {
+        "name": "Smoke Break",
+        "type": "weed",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 30%. SpA +1, SpD -1. Locked next turn."
+      },
+      {
+        "name": "Riff Punch",
+        "type": "weed",
+        "category": "physical",
+        "power": 65,
+        "description": "Guitar swing. 20% flinch."
+      },
+      {
+        "name": "Forgot the Lyrics",
+        "type": "alcohol",
+        "category": "special",
+        "power": 50,
+        "description": "Never misses. Enemy SpA -1 (cringe)."
+      },
+      {
+        "name": "Sloppy Guitar",
+        "type": "neutral",
+        "category": "physical",
+        "power": 55,
+        "description": "Bad guitar. 40% flinch. Musicians take 1.3x."
+      },
+      {
+        "name": "Game of Thrones Flex",
+        "type": "neutral",
+        "category": "special",
+        "power": 75,
+        "description": "GoT brag. Enemy SpD -2. Cringe."
+      },
+      {
+        "name": "Write Song",
+        "type": "all",
+        "category": "special",
+        "power": 0,
+        "description": "Random song. Roll the dice."
+      },
+      {
+        "name": "Random Line",
+        "type": "amphetamines",
+        "category": "physical",
+        "power": 85,
+        "description": "30% confuse self. Anything goes."
+      },
+      {
+        "name": "Mosh Pit Volunteer",
+        "type": "neutral",
+        "category": "physical",
+        "power": 130,
+        "description": "20% recoil. Heavy hitter."
+      }
+    ]
+  },
+  {
+    "id": "sandro",
+    "name": "SANDRO",
+    "title": "The Third Eye Charmer",
+    "types": [
+      "psychedelics",
+      "weed"
+    ],
+    "tags": [
+      "Musician"
+    ],
+    "passive": "Ego Death",
+    "passive_desc": "Below 50% HP: all stats randomly shuffle. Who am I? What are stats?",
+    "stats": {
+      "HP": 6,
+      "Atk": 5,
+      "Def": 5,
+      "SpA": 8,
+      "SpD": 8,
+      "Spe": 7
+    },
+    "flavor": "DMT explorer. Opera voice, sings in choir. Played Lisinski TWICE. Third eye: OPEN.",
+    "moves": [
+      {
+        "name": "DMT Blast",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 100,
+        "description": "2-turn charge. Invulnerable. THE NUKE.",
+        "pp": 4
+      },
+      {
+        "name": "Roll Joint",
+        "type": "weed",
+        "category": "status",
+        "power": 0,
+        "description": "1 turn roll. Next: heal 30% + SpA +1."
+      },
+      {
+        "name": "Play Keys",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 60,
+        "description": "Puts enemy to sleep. Sound move."
+      },
+      {
+        "name": "Club Pickup",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Heal 25%. 50% SpA +1."
+      },
+      {
+        "name": "Guitar Shred",
+        "type": "psychedelics",
+        "category": "physical",
+        "power": 75,
+        "description": "Smash guitar. 25% confuse."
+      },
+      {
+        "name": "Hotbox",
+        "type": "weed",
+        "category": "special",
+        "power": 80,
+        "description": "Enemy accuracy -2 for 2 turns."
+      },
+      {
+        "name": "Third Eye Beam",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 110,
+        "description": "If enemy statused: power 150."
+      },
+      {
+        "name": "Opera Voice",
+        "type": "psychedelics",
+        "category": "special",
+        "power": 85,
+        "description": "Lisinski-trained pipes. Enemy SpD -1. Sound move."
+      }
+    ]
+  },
+  {
+    "id": "rukavina",
+    "name": "RUKAVINA",
+    "title": "The Law",
+    "types": [
+      "alcohol"
+    ],
+    "tags": [
+      "Musician"
+    ],
+    "passive": "Blackout + Thick Skull",
+    "passive_desc": "50% less Special dmg. All moves -10% accuracy. Military police. Built different.",
+    "stats": {
+      "HP": 8,
+      "Atk": 9,
+      "Def": 9,
+      "SpA": 7,
+      "SpD": 5,
+      "Spe": 5
+    },
+    "flavor": "Cop. Bassist. HIGHEST DEF. Handcuffs, guns, and confusion.",
+    "moves": [
+      {
+        "name": "Handcuffs",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Trap 2-3 turns. No Status moves."
+      },
+      {
+        "name": "Baton Strike",
+        "type": "neutral",
+        "category": "physical",
+        "power": 90,
+        "description": "20% flinch. Simple. Brutal."
+      },
+      {
+        "name": "Drunk Arrest",
+        "type": "alcohol",
+        "category": "physical",
+        "power": 100,
+        "description": "Scales with Alcohol usage."
+      },
+      {
+        "name": "Confused Aim",
+        "type": "neutral",
+        "category": "physical",
+        "power": 50,
+        "description": "50/50: CRIT or 20% self-dmg."
+      },
+      {
+        "name": "Squad Car Ram",
+        "type": "alcohol",
+        "category": "physical",
+        "power": 115,
+        "description": "Ignores Def buffs."
+      },
+      {
+        "name": "Taser",
+        "type": "neutral",
+        "category": "special",
+        "power": 45,
+        "description": "60% paralyze."
+      },
+      {
+        "name": "Miranda Rights",
+        "type": "neutral",
+        "category": "status",
+        "power": 0,
+        "description": "Atk -1, SpA -1. If Drunk: -2 each."
+      },
+      {
+        "name": "Badge Flash",
+        "type": "alcohol",
+        "category": "status",
+        "power": 0,
+        "description": "40% flinch. Def +1."
+      }
+    ]
+  }
+]

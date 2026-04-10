@@ -15,6 +15,8 @@ import {
 import type { GameState, GameCard, PlayerRow, DrinkPenalty } from "@/lib/supabase";
 import { spriteUrl } from "@/lib/fighters";
 import playlist from "@/data/playlist.json";
+import { BattleScene } from "@/components/BattleScene";
+import { createBattleState, executeTurn, type BattleState as MatijamonBattleState } from "@/lib/battle";
 
 const CARDS_PER_ROUND = 30;
 
@@ -39,6 +41,18 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
   const [actedPlayerIds, setActedPlayerIds] = useState<Set<string>>(new Set());
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onYes: () => void } | null>(null);
   const [showKickMenu, setShowKickMenu] = useState(false);
+  // Battle state (for boss fight cards)
+  const [battle, setBattle] = useState<{
+    state: MatijamonBattleState;
+    p1Player: PlayerRow;
+    p2Player: PlayerRow;
+    p1Move: number | null;
+    p2Move: number | null;
+    selectingFor: "p1" | "p2";
+    selectedMoveIdx: number;
+    message: string;
+    resolved: boolean;
+  } | null>(null);
 
   const tracks = playlist as PlaylistTrack[];
 
@@ -188,7 +202,110 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
     const card = drawCard({ currentRound: state.current_round, isGroomTurn, bossFightCooldown: 99 });
     setVoteTally({});
     setActedPlayerIds(new Set());
+
+    // Boss Fight: kick off Matijamon battle
+    if (card.card_type === "boss_fight" && players.length >= 2) {
+      const p1 = players[state.current_player_idx];
+      const others = players.filter(p => p.id !== p1.id);
+      const p2 = others[Math.floor(Math.random() * others.length)];
+      const battleState = createBattleState(p1.fighter_id, p2.fighter_id);
+      setBattle({
+        state: battleState,
+        p1Player: p1,
+        p2Player: p2,
+        p1Move: null,
+        p2Move: null,
+        selectingFor: "p1",
+        selectedMoveIdx: 0,
+        message: `${p1.name} VS ${p2.name}!`,
+        resolved: false,
+      });
+      // Switch to battle music
+      const battleTracks = ["Thunderstruck", "Killing In", "Enter Sandman", "Mortal Kombat"];
+      playRandomTrack(battleTracks);
+    }
+
     await updateRoomState(code, { ...state, current_card: card, card_phase: "show" });
+  };
+
+  // Battle handlers
+  const handleBattleMoveSelect = (idx: number) => {
+    if (!battle) return;
+    setBattle({ ...battle, selectedMoveIdx: idx });
+  };
+
+  const handleBattleMoveConfirm = async () => {
+    if (!battle || !state) return;
+    if (battle.selectingFor === "p1") {
+      setBattle({
+        ...battle,
+        p1Move: battle.selectedMoveIdx,
+        selectingFor: "p2",
+        selectedMoveIdx: 0,
+        message: `${battle.p2Player.name}, odaberi potez!`,
+      });
+    } else {
+      const p1MoveIdx = battle.p1Move ?? 0;
+      const p2MoveIdx = battle.selectedMoveIdx;
+      executeTurn(battle.state, p1MoveIdx, p2MoveIdx);
+      const lastEvents = battle.state.log.slice(-8).filter(e => e.text);
+      const message = lastEvents.map(e => e.text).join(" ");
+
+      // Resolve drink triggers
+      const drinkEvents = battle.state.log.slice(-12).filter(e => e.type === "drink_trigger");
+      const penalties: DrinkPenalty[] = [];
+      for (const ev of drinkEvents) {
+        if (!ev.drinkAmount) continue;
+        if (ev.drinkTarget === "attacker") {
+          penalties.push({ player_name: battle.p1Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+        } else if (ev.drinkTarget === "defender") {
+          penalties.push({ player_name: battle.p2Player.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+        } else if (ev.drinkTarget === "spectators") {
+          for (const p of players) {
+            if (p.id !== battle.p1Player.id && p.id !== battle.p2Player.id) {
+              penalties.push({ player_name: p.name, sips: ev.drinkAmount, shots: 0, reason: ev.text || "" });
+            }
+          }
+        }
+      }
+      if (penalties.length > 0) {
+        const withMates = applyMates(penalties, players);
+        const withTax = applyGroomTax(withMates, players, state.current_round);
+        await applyDrinks(code, withTax);
+      }
+
+      if (battle.state.isOver) {
+        const winnerName = battle.state.winnerId === battle.p1Player.fighter_id ? battle.p1Player.name : battle.p2Player.name;
+        const loserName = battle.state.winnerId === battle.p1Player.fighter_id ? battle.p2Player.name : battle.p1Player.name;
+        const koPenalties: DrinkPenalty[] = [{
+          player_name: loserName, sips: 3, shots: 0, reason: `Gubitnik MATIJAMON borbe pije 3!`,
+        }];
+        const withMates = applyMates(koPenalties, players);
+        const withTax = applyGroomTax(withMates, players, state.current_round);
+        await applyDrinks(code, withTax);
+        setBattle({
+          ...battle,
+          message: `${winnerName} POBJEDJUJE! ${loserName} pije 3.`,
+          resolved: true,
+          p1Move: null,
+          selectingFor: "p1",
+          selectedMoveIdx: 0,
+        });
+      } else {
+        setBattle({
+          ...battle,
+          message: message || `Sljedeci red. ${battle.p1Player.name}, odaberi potez!`,
+          p1Move: null,
+          selectingFor: "p1",
+          selectedMoveIdx: 0,
+        });
+      }
+    }
+  };
+
+  const finishBattle = async () => {
+    setBattle(null);
+    if (state) await advanceTurn();
   };
 
   const advanceTurn = useCallback(async () => {
@@ -663,8 +780,38 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             </div>
           )}
 
-          {state.card_phase === "show" && card && (
+          {state.card_phase === "show" && card && !battle && (
             <CardDisplay card={card} voteTally={voteTally} actedCount={actedPlayerIds.size} totalPlayers={players.length} />
+          )}
+
+          {state.card_phase === "show" && card && battle && (
+            <div className="w-full max-w-5xl">
+              <div className="text-center mb-3">
+                <p className="text-zinc-500 text-xs">BOSS FIGHT</p>
+                <p className="text-2xl text-[#FFC828]">
+                  {battle.selectingFor === "p1" ? battle.p1Player.name : battle.p2Player.name}, odaberi potez!
+                </p>
+              </div>
+              <BattleScene
+                state={battle.selectingFor === "p1" || battle.resolved
+                  ? battle.state
+                  : { ...battle.state, player1: battle.state.player2, player2: battle.state.player1 }}
+                showMoves={!battle.resolved}
+                selectedMoveIdx={battle.selectedMoveIdx}
+                onMoveSelect={handleBattleMoveSelect}
+                onMoveConfirm={handleBattleMoveConfirm}
+                currentMessage={battle.message}
+                mode="host"
+              />
+              {battle.resolved && (
+                <div className="text-center mt-4">
+                  <button onClick={finishBattle}
+                    className="bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-xl hover:bg-[#FFD850] active:scale-95">
+                    KRAJ BORBE
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
