@@ -22,7 +22,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="hr" className="h-full">
-      <body className="min-h-full flex flex-col bg-[#0c0c14] text-white font-pixel">{children}</body>
+      <body className="min-h-full flex flex-col bg-[#0c0c14] text-white font-pixel">
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                  navigator.serviceWorker.register('/sw.js').catch(() => {});
+                });
+              }
+            `,
+          }}
+        />
+      </body>
     </html>
   );
 }

@@ -69,7 +69,7 @@ export default function Home() {
             disabled={busy}
             className="bg-[#FFC828] text-black font-bold py-6 px-8 rounded-lg text-xl hover:bg-[#FFD850] active:scale-95 transition disabled:opacity-50 shadow-lg"
           >
-            {busy ? "..." : "POKRENI IGRU"}
+            {busy ? "..." : "ONLINE IGRA"}
           </button>
           <button
             onClick={() => setMode("join")}
@@ -78,10 +78,18 @@ export default function Home() {
           >
             PRIDRUZI SE
           </button>
-          <p className="text-xs text-zinc-500 text-center mt-4 leading-relaxed">
-            POKRENI IGRU - na TV-u<br/>
-            PRIDRUZI SE - na mobitelu
-          </p>
+          <button
+            onClick={() => router.push("/local")}
+            disabled={busy}
+            className="bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-6 px-8 rounded-lg text-xl active:scale-95 transition disabled:opacity-50 shadow-lg"
+          >
+            LOKALNO (1 EKRAN)
+          </button>
+          <div className="text-xs text-zinc-500 text-center mt-4 leading-relaxed space-y-1">
+            <p><span className="text-[#FFC828]">ONLINE IGRA</span> — TV + telefoni</p>
+            <p><span className="text-[#28508C]">PRIDRUZI SE</span> — telefon u sobu</p>
+            <p><span className="text-[#28A050]">LOKALNO</span> — 1 uredjaj, bez interneta</p>
+          </div>
         </div>
       )}
 
