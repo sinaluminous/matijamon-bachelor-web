@@ -84,7 +84,7 @@ export default function LocalGamePage() {
   }, [musicVolume, musicMuted]);
 
   const playRandomTrack = useCallback((phasePool?: string[]) => {
-    if (!audioRef.current || !audioStarted) return;
+    if (!audioRef.current) return;
     let candidates: PlaylistTrack[];
     if (phasePool && phasePool.length > 0) {
       candidates = tracks.filter(t => phasePool.some(name => t.name.includes(name)));
@@ -93,7 +93,7 @@ export default function LocalGamePage() {
     if (candidates.length > 1 && currentTrack) candidates = candidates.filter(t => t.name !== currentTrack);
     const t = candidates[Math.floor(Math.random() * candidates.length)];
     playTrack(t);
-  }, [tracks, audioStarted, currentTrack, playTrack]);
+  }, [tracks, currentTrack, playTrack]);
 
   const nextTrack = () => playRandomTrack();
   const prevTrack = () => {
@@ -120,7 +120,7 @@ export default function LocalGamePage() {
   // GAME ACTIONS
   // ────────────────────────────────────────────────────────────────────
 
-  const startGame = (newPlayers: LocalPlayer[]) => {
+  const startGame = async (newPlayers: LocalPlayer[]) => {
     setPlayers(newPlayers);
     setPhase("playing");
     setCurrentRound(1);
@@ -128,7 +128,24 @@ export default function LocalGamePage() {
     setCurrentPlayerIdx(0);
     setCardPhase("draw");
     setAudioStarted(true);
-    setTimeout(() => playRandomTrack(["Still DRE", "Africa", "Beat It", "Holy Diver"]), 100);
+
+    // Play music DIRECTLY in this click handler to satisfy autoplay policy
+    if (audioRef.current) {
+      const phasePool = ["Still DRE", "Africa", "Beat It", "Holy Diver"];
+      let candidates = tracks.filter(t => phasePool.some(name => t.name.includes(name)));
+      if (candidates.length === 0) candidates = tracks;
+      const t = candidates[Math.floor(Math.random() * candidates.length)];
+      audioRef.current.src = t.url;
+      audioRef.current.volume = musicMuted ? 0 : musicVolume;
+      try {
+        await audioRef.current.play();
+        setCurrentTrack(t.name);
+        trackHistoryRef.current = [t];
+        trackHistoryPosRef.current = 0;
+      } catch (err) {
+        console.error("Music autoplay blocked:", err);
+      }
+    }
   };
 
   const drawNewCard = () => {

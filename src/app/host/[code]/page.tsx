@@ -100,7 +100,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   // Music: random track from a phase pool (or full playlist)
   const playRandomTrack = useCallback((phasePool?: string[]) => {
-    if (!audioRef.current || !audioStarted) return;
+    if (!audioRef.current) return;
     let candidates: PlaylistTrack[];
     if (phasePool && phasePool.length > 0) {
       candidates = tracks.filter(t => phasePool.some(name => t.name.includes(name)));
@@ -114,7 +114,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
     }
     const t = candidates[Math.floor(Math.random() * candidates.length)];
     playTrack(t);
-  }, [tracks, audioStarted, currentTrack, playTrack]);
+  }, [tracks, currentTrack, playTrack]);
 
   const nextTrack = () => playRandomTrack();
 
@@ -152,13 +152,33 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
   const startGame = async () => {
     if (!state || players.length < 2) return;
     setAudioStarted(true);
+
+    // CRITICAL: play audio directly inside the click handler to satisfy
+    // browser autoplay policy. Don't use setTimeout — that breaks the
+    // user-gesture chain and the browser will block playback.
+    if (audioRef.current) {
+      const phasePool = ["Still DRE", "Africa", "Beat It", "Holy Diver"];
+      let candidates = tracks.filter(t => phasePool.some(name => t.name.includes(name)));
+      if (candidates.length === 0) candidates = tracks;
+      const t = candidates[Math.floor(Math.random() * candidates.length)];
+      audioRef.current.src = t.url;
+      audioRef.current.volume = musicMuted ? 0 : musicVolume;
+      try {
+        await audioRef.current.play();
+        setCurrentTrack(t.name);
+        trackHistoryRef.current = [t];
+        trackHistoryPosRef.current = 0;
+      } catch (err) {
+        console.error("Music autoplay blocked:", err);
+      }
+    }
+
     const newState: GameState = {
       ...state,
       phase: "playing", current_round: 1, cards_in_round: 0,
       total_cards_drawn: 0, current_player_idx: 0, card_phase: "draw",
     };
     await updateRoomState(code, newState);
-    setTimeout(() => playRandomTrack(["Still DRE", "Africa", "Beat It", "Holy Diver"]), 100);
   };
 
   const drawNewCard = async () => {
