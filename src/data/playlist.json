@@ -1,0 +1,537 @@
+[
+ {
+  "name": "Chop Suey - SOAD",
+  "url": "/music/01_PASKO/Chop Suey - SOAD.mp3",
+  "fighter_id": "pasko"
+ },
+ {
+  "name": "Game of Thrones Theme",
+  "url": "/music/01_PASKO/Game of Thrones Theme.mp3",
+  "fighter_id": "pasko"
+ },
+ {
+  "name": "Killing In The Name - RATM",
+  "url": "/music/01_PASKO/Killing In The Name - RATM.mp3",
+  "fighter_id": "pasko"
+ },
+ {
+  "name": "Last Resort - Papa Roach",
+  "url": "/music/01_PASKO/Last Resort - Papa Roach.mp3",
+  "fighter_id": "pasko"
+ },
+ {
+  "name": "One Step Closer - Linkin Park",
+  "url": "/music/01_PASKO/One Step Closer - Linkin Park.mp3",
+  "fighter_id": "pasko"
+ },
+ {
+  "name": "Toxicity - SOAD",
+  "url": "/music/01_PASKO/Toxicity - SOAD.mp3",
+  "fighter_id": "pasko"
+ },
+ {
+  "name": "Wait and Bleed - Slipknot",
+  "url": "/music/01_PASKO/Wait and Bleed - Slipknot.mp3",
+  "fighter_id": "pasko"
+ },
+ {
+  "name": "Children - Robert Miles",
+  "url": "/music/02_SANDRO/Children - Robert Miles.mp3",
+  "fighter_id": "sandro"
+ },
+ {
+  "name": "Faded - Alan Walker",
+  "url": "/music/02_SANDRO/Faded - Alan Walker.mp3",
+  "fighter_id": "sandro"
+ },
+ {
+  "name": "My Sharona - The Knack",
+  "url": "/music/02_SANDRO/My Sharona - The Knack.mp3",
+  "fighter_id": "sandro"
+ },
+ {
+  "name": "Running Up That Hill - Kate Bush",
+  "url": "/music/02_SANDRO/Running Up That Hill - Kate Bush.mp3",
+  "fighter_id": "sandro"
+ },
+ {
+  "name": "Sweet Dreams - Eurythmics",
+  "url": "/music/02_SANDRO/Sweet Dreams - Eurythmics.mp3",
+  "fighter_id": "sandro"
+ },
+ {
+  "name": "Take On Me - A-ha",
+  "url": "/music/02_SANDRO/Take On Me - A-ha.mp3",
+  "fighter_id": "sandro"
+ },
+ {
+  "name": "The Less I Know The Better - Tame Impala",
+  "url": "/music/02_SANDRO/The Less I Know The Better - Tame Impala.mp3",
+  "fighter_id": "sandro"
+ },
+ {
+  "name": "Amerika - Rammstein",
+  "url": "/music/03_BLIKI/Amerika - Rammstein.mp3",
+  "fighter_id": "bliki"
+ },
+ {
+  "name": "Bodies - Drowning Pool",
+  "url": "/music/03_BLIKI/Bodies - Drowning Pool.mp3",
+  "fighter_id": "bliki"
+ },
+ {
+  "name": "Cum On Feel The Noize - Quiet Riot",
+  "url": "/music/03_BLIKI/Cum On Feel The Noize - Quiet Riot.mp3",
+  "fighter_id": "bliki"
+ },
+ {
+  "name": "Harlem Shake - Baauer",
+  "url": "/music/03_BLIKI/Harlem Shake - Baauer.mp3",
+  "fighter_id": "bliki"
+ },
+ {
+  "name": "Sandstorm - Darude",
+  "url": "/music/03_BLIKI/Sandstorm - Darude.mp3",
+  "fighter_id": "bliki"
+ },
+ {
+  "name": "Sonne - Rammstein",
+  "url": "/music/03_BLIKI/Sonne - Rammstein.mp3",
+  "fighter_id": "bliki"
+ },
+ {
+  "name": "Turn Down For What",
+  "url": "/music/03_BLIKI/Turn Down For What.mp3",
+  "fighter_id": "bliki"
+ },
+ {
+  "name": "Breaking The Law - Judas Priest",
+  "url": "/music/04_FIXX/Breaking The Law - Judas Priest.mp3",
+  "fighter_id": "fixx"
+ },
+ {
+  "name": "Duality - Slipknot",
+  "url": "/music/04_FIXX/Duality - Slipknot.mp3",
+  "fighter_id": "fixx"
+ },
+ {
+  "name": "Enter Sandman - Metallica",
+  "url": "/music/04_FIXX/Enter Sandman - Metallica.mp3",
+  "fighter_id": "fixx"
+ },
+ {
+  "name": "Forgot About Dre - Eminem and Dr Dre",
+  "url": "/music/04_FIXX/Forgot About Dre - Eminem and Dr Dre.mp3",
+  "fighter_id": "fixx"
+ },
+ {
+  "name": "Hallowed Be Thy Name - Iron Maiden",
+  "url": "/music/04_FIXX/Hallowed Be Thy Name - Iron Maiden.mp3",
+  "fighter_id": "fixx"
+ },
+ {
+  "name": "Ride The Lightning - Metallica",
+  "url": "/music/04_FIXX/Ride The Lightning - Metallica.mp3",
+  "fighter_id": "fixx"
+ },
+ {
+  "name": "Star Wars Theme 8 Bit",
+  "url": "/music/04_FIXX/Star Wars Theme 8 Bit.mp3",
+  "fighter_id": "fixx"
+ },
+ {
+  "name": "Another One Bites The Dust - Queen",
+  "url": "/music/05_COVIC/Another One Bites The Dust - Queen.mp3",
+  "fighter_id": "covic"
+ },
+ {
+  "name": "Despacito 8 Bit",
+  "url": "/music/05_COVIC/Despacito 8 Bit.mp3",
+  "fighter_id": "covic"
+ },
+ {
+  "name": "I Love Rock N Roll - Joan Jett",
+  "url": "/music/05_COVIC/I Love Rock N Roll - Joan Jett.mp3",
+  "fighter_id": "covic"
+ },
+ {
+  "name": "Iron Man - Black Sabbath",
+  "url": "/music/05_COVIC/Iron Man - Black Sabbath.mp3",
+  "fighter_id": "covic"
+ },
+ {
+  "name": "Raining Blood - Slayer",
+  "url": "/music/05_COVIC/Raining Blood - Slayer.mp3",
+  "fighter_id": "covic"
+ },
+ {
+  "name": "Song 2 - Blur",
+  "url": "/music/05_COVIC/Song 2 - Blur.mp3",
+  "fighter_id": "covic"
+ },
+ {
+  "name": "War Pigs - Black Sabbath",
+  "url": "/music/05_COVIC/War Pigs - Black Sabbath.mp3",
+  "fighter_id": "covic"
+ },
+ {
+  "name": "Africa - Toto",
+  "url": "/music/06_DENIS/Africa - Toto.mp3",
+  "fighter_id": "denis"
+ },
+ {
+  "name": "Another Brick In The Wall - Pink Floyd",
+  "url": "/music/06_DENIS/Another Brick In The Wall - Pink Floyd.mp3",
+  "fighter_id": "denis"
+ },
+ {
+  "name": "Crazy Train - Ozzy Osbourne",
+  "url": "/music/06_DENIS/Crazy Train - Ozzy Osbourne.mp3",
+  "fighter_id": "denis"
+ },
+ {
+  "name": "Dream On - Aerosmith",
+  "url": "/music/06_DENIS/Dream On - Aerosmith.mp3",
+  "fighter_id": "denis"
+ },
+ {
+  "name": "In The Air Tonight - Phil Collins",
+  "url": "/music/06_DENIS/In The Air Tonight - Phil Collins.mp3",
+  "fighter_id": "denis"
+ },
+ {
+  "name": "Our House - Madness",
+  "url": "/music/06_DENIS/Our House - Madness.mp3",
+  "fighter_id": "denis"
+ },
+ {
+  "name": "Paint It Black - Rolling Stones",
+  "url": "/music/06_DENIS/Paint It Black - Rolling Stones.mp3",
+  "fighter_id": "denis"
+ },
+ {
+  "name": "Bitter Sweet Symphony - The Verve",
+  "url": "/music/07_STIPE/Bitter Sweet Symphony - The Verve.mp3",
+  "fighter_id": "stipe"
+ },
+ {
+  "name": "Feel Good Inc - Gorillaz",
+  "url": "/music/07_STIPE/Feel Good Inc - Gorillaz.mp3",
+  "fighter_id": "stipe"
+ },
+ {
+  "name": "Hey Brother - Avicii",
+  "url": "/music/07_STIPE/Hey Brother - Avicii.mp3",
+  "fighter_id": "stipe"
+ },
+ {
+  "name": "Psycho Killer - Talking Heads",
+  "url": "/music/07_STIPE/Psycho Killer - Talking Heads.mp3",
+  "fighter_id": "stipe"
+ },
+ {
+  "name": "Roundabout - Yes",
+  "url": "/music/07_STIPE/Roundabout - Yes.mp3",
+  "fighter_id": "stipe"
+ },
+ {
+  "name": "Take Me Out - Franz Ferdinand",
+  "url": "/music/07_STIPE/Take Me Out - Franz Ferdinand.mp3",
+  "fighter_id": "stipe"
+ },
+ {
+  "name": "Virtual Insanity - Jamiroquai",
+  "url": "/music/07_STIPE/Virtual Insanity - Jamiroquai.mp3",
+  "fighter_id": "stipe"
+ },
+ {
+  "name": "Before I Forget - Slipknot",
+  "url": "/music/08_MARIN/Before I Forget - Slipknot.mp3",
+  "fighter_id": "marin"
+ },
+ {
+  "name": "Comptine dun autre ete - Amelie",
+  "url": "/music/08_MARIN/Comptine dun autre ete - Amelie.mp3",
+  "fighter_id": "marin"
+ },
+ {
+  "name": "Run to the Hills - Iron Maiden",
+  "url": "/music/08_MARIN/Run to the Hills - Iron Maiden.mp3",
+  "fighter_id": "marin"
+ },
+ {
+  "name": "Schism - Tool",
+  "url": "/music/08_MARIN/Schism - Tool.mp3",
+  "fighter_id": "marin"
+ },
+ {
+  "name": "Sultans of Swing - Dire Straits",
+  "url": "/music/08_MARIN/Sultans of Swing - Dire Straits.mp3",
+  "fighter_id": "marin"
+ },
+ {
+  "name": "Through The Fire and Flames - Dragonforce",
+  "url": "/music/08_MARIN/Through The Fire and Flames - Dragonforce.mp3",
+  "fighter_id": "marin"
+ },
+ {
+  "name": "Where Is My Mind - Pixies",
+  "url": "/music/08_MARIN/Where Is My Mind - Pixies.mp3",
+  "fighter_id": "marin"
+ },
+ {
+  "name": "CREAM - Wu-Tang Clan",
+  "url": "/music/09_GORAN/CREAM - Wu-Tang Clan.mp3",
+  "fighter_id": "goran"
+ },
+ {
+  "name": "Mo Money Mo Problems - Notorious BIG",
+  "url": "/music/09_GORAN/Mo Money Mo Problems - Notorious BIG.mp3",
+  "fighter_id": "goran"
+ },
+ {
+  "name": "Mortal Kombat Theme",
+  "url": "/music/09_GORAN/Mortal Kombat Theme.mp3",
+  "fighter_id": "goran"
+ },
+ {
+  "name": "Pacific Rim Theme",
+  "url": "/music/09_GORAN/Pacific Rim Theme.mp3",
+  "fighter_id": "goran"
+ },
+ {
+  "name": "Seven Nation Army - White Stripes",
+  "url": "/music/09_GORAN/Seven Nation Army - White Stripes.mp3",
+  "fighter_id": "goran"
+ },
+ {
+  "name": "The Ecstasy of Gold - Morricone",
+  "url": "/music/09_GORAN/The Ecstasy of Gold - Morricone.mp3",
+  "fighter_id": "goran"
+ },
+ {
+  "name": "X Gon Give It To Ya - DMX",
+  "url": "/music/09_GORAN/X Gon Give It To Ya - DMX.mp3",
+  "fighter_id": "goran"
+ },
+ {
+  "name": "Blue Monday - New Order",
+  "url": "/music/10_SASA/Blue Monday - New Order.mp3",
+  "fighter_id": "sasa"
+ },
+ {
+  "name": "Boulevard of Broken Dreams - Green Day",
+  "url": "/music/10_SASA/Boulevard of Broken Dreams - Green Day.mp3",
+  "fighter_id": "sasa"
+ },
+ {
+  "name": "Clubbed To Death - Matrix",
+  "url": "/music/10_SASA/Clubbed To Death - Matrix.mp3",
+  "fighter_id": "sasa"
+ },
+ {
+  "name": "Du Hast - Rammstein",
+  "url": "/music/10_SASA/Du Hast - Rammstein.mp3",
+  "fighter_id": "sasa"
+ },
+ {
+  "name": "Kernkraft 400 - Zombie Nation",
+  "url": "/music/10_SASA/Kernkraft 400 - Zombie Nation.mp3",
+  "fighter_id": "sasa"
+ },
+ {
+  "name": "Poker Face - Lady Gaga",
+  "url": "/music/10_SASA/Poker Face - Lady Gaga.mp3",
+  "fighter_id": "sasa"
+ },
+ {
+  "name": "Satisfaction - Benny Benassi",
+  "url": "/music/10_SASA/Satisfaction - Benny Benassi.mp3",
+  "fighter_id": "sasa"
+ },
+ {
+  "name": "Beat It - Michael Jackson",
+  "url": "/music/11_RUKAVINA/Beat It - Michael Jackson.mp3",
+  "fighter_id": "rukavina"
+ },
+ {
+  "name": "Bohemian Rhapsody - Queen",
+  "url": "/music/11_RUKAVINA/Bohemian Rhapsody - Queen.mp3",
+  "fighter_id": "rukavina"
+ },
+ {
+  "name": "Livin On A Prayer - Bon Jovi",
+  "url": "/music/11_RUKAVINA/Livin On A Prayer - Bon Jovi.mp3",
+  "fighter_id": "rukavina"
+ },
+ {
+  "name": "Smoke On The Water - Deep Purple",
+  "url": "/music/11_RUKAVINA/Smoke On The Water - Deep Purple.mp3",
+  "fighter_id": "rukavina"
+ },
+ {
+  "name": "The Final Countdown - Europe",
+  "url": "/music/11_RUKAVINA/The Final Countdown - Europe.mp3",
+  "fighter_id": "rukavina"
+ },
+ {
+  "name": "Under Pressure - Queen and David Bowie",
+  "url": "/music/11_RUKAVINA/Under Pressure - Queen and David Bowie.mp3",
+  "fighter_id": "rukavina"
+ },
+ {
+  "name": "We Are The Champions - Queen",
+  "url": "/music/11_RUKAVINA/We Are The Champions - Queen.mp3",
+  "fighter_id": "rukavina"
+ },
+ {
+  "name": "Billie Jean - Michael Jackson",
+  "url": "/music/12_SINA/Billie Jean - Michael Jackson.mp3",
+  "fighter_id": "sina"
+ },
+ {
+  "name": "I Got 5 On It - Luniz",
+  "url": "/music/12_SINA/I Got 5 On It - Luniz.mp3",
+  "fighter_id": "sina"
+ },
+ {
+  "name": "Lose Yourself - Eminem",
+  "url": "/music/12_SINA/Lose Yourself - Eminem.mp3",
+  "fighter_id": "sina"
+ },
+ {
+  "name": "Paranoid - Black Sabbath",
+  "url": "/music/12_SINA/Paranoid - Black Sabbath.mp3",
+  "fighter_id": "sina"
+ },
+ {
+  "name": "Redbone - Childish Gambino",
+  "url": "/music/12_SINA/Redbone - Childish Gambino.mp3",
+  "fighter_id": "sina"
+ },
+ {
+  "name": "Ridin Dirty - Chamillionaire",
+  "url": "/music/12_SINA/Ridin Dirty - Chamillionaire.mp3",
+  "fighter_id": "sina"
+ },
+ {
+  "name": "Still DRE - Dr Dre feat Snoop Dogg",
+  "url": "/music/12_SINA/Still DRE - Dr Dre feat Snoop Dogg.mp3",
+  "fighter_id": "sina"
+ },
+ {
+  "name": "Breathe - The Prodigy",
+  "url": "/music/13_MATIJA/Breathe - The Prodigy.mp3",
+  "fighter_id": "matija"
+ },
+ {
+  "name": "Dragostea Din Tei - O-Zone",
+  "url": "/music/13_MATIJA/Dragostea Din Tei - O-Zone.mp3",
+  "fighter_id": "matija"
+ },
+ {
+  "name": "Faint - Linkin Park",
+  "url": "/music/13_MATIJA/Faint - Linkin Park.mp3",
+  "fighter_id": "matija"
+ },
+ {
+  "name": "Holy Diver - Dio",
+  "url": "/music/13_MATIJA/Holy Diver - Dio.mp3",
+  "fighter_id": "matija"
+ },
+ {
+  "name": "Rollin - Limp Bizkit",
+  "url": "/music/13_MATIJA/Rollin - Limp Bizkit.mp3",
+  "fighter_id": "matija"
+ },
+ {
+  "name": "Thunderstruck - ACDC",
+  "url": "/music/13_MATIJA/Thunderstruck - ACDC.mp3",
+  "fighter_id": "matija"
+ },
+ {
+  "name": "You Spin Me Round",
+  "url": "/music/13_MATIJA/You Spin Me Round.mp3",
+  "fighter_id": "matija"
+ },
+ {
+  "name": "At Dooms Gate - DOOM",
+  "url": "/music/14_MISLAV/At Dooms Gate - DOOM.mp3",
+  "fighter_id": "mislav"
+ },
+ {
+  "name": "Coffin Dance Astronomia",
+  "url": "/music/14_MISLAV/Coffin Dance Astronomia.mp3",
+  "fighter_id": "mislav"
+ },
+ {
+  "name": "DOOM The Only Thing They Fear Is You",
+  "url": "/music/14_MISLAV/DOOM The Only Thing They Fear Is You.mp3",
+  "fighter_id": "mislav"
+ },
+ {
+  "name": "Halo Theme",
+  "url": "/music/14_MISLAV/Halo Theme.mp3",
+  "fighter_id": "mislav"
+ },
+ {
+  "name": "Hunt or Be Hunted - Witcher 3",
+  "url": "/music/14_MISLAV/Hunt or Be Hunted - Witcher 3.mp3",
+  "fighter_id": "mislav"
+ },
+ {
+  "name": "The Mandalorian Theme",
+  "url": "/music/14_MISLAV/The Mandalorian Theme.mp3",
+  "fighter_id": "mislav"
+ },
+ {
+  "name": "Zelda Music 8 Bit",
+  "url": "/music/14_MISLAV/Zelda Music 8 Bit.mp3",
+  "fighter_id": "mislav"
+ },
+ {
+  "name": "Digimon Butter-Fly",
+  "url": "/music/15_BRAOVIC/Digimon Butter-Fly.mp3",
+  "fighter_id": "braovic"
+ },
+ {
+  "name": "Dragon Ball Makafushigi Adventure",
+  "url": "/music/15_BRAOVIC/Dragon Ball Makafushigi Adventure.mp3",
+  "fighter_id": "braovic"
+ },
+ {
+  "name": "Dragon Ball Z Cha-La Head-Cha-La",
+  "url": "/music/15_BRAOVIC/Dragon Ball Z Cha-La Head-Cha-La.mp3",
+  "fighter_id": "braovic"
+ },
+ {
+  "name": "Drunken Sailor - 8 Bit Universe",
+  "url": "/music/15_BRAOVIC/Drunken Sailor - 8 Bit Universe.mp3",
+  "fighter_id": "braovic"
+ },
+ {
+  "name": "Father and Son - Cat Stevens",
+  "url": "/music/15_BRAOVIC/Father and Son - Cat Stevens.mp3",
+  "fighter_id": "braovic"
+ },
+ {
+  "name": "Guiles Theme - Street Fighter II",
+  "url": "/music/15_BRAOVIC/Guiles Theme - Street Fighter II.mp3",
+  "fighter_id": "braovic"
+ },
+ {
+  "name": "Legends of Azeroth - World of Warcraft Login",
+  "url": "/music/15_BRAOVIC/Legends of Azeroth - World of Warcraft Login.mp3",
+  "fighter_id": "braovic"
+ },
+ {
+  "name": "Pokemon Theme",
+  "url": "/music/15_BRAOVIC/Pokemon Theme.mp3",
+  "fighter_id": "braovic"
+ },
+ {
+  "name": "Sadness and Sorrow - Naruto",
+  "url": "/music/15_BRAOVIC/Sadness and Sorrow - Naruto.mp3",
+  "fighter_id": "braovic"
+ }
+]
