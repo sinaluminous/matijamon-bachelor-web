@@ -150,32 +150,68 @@ const PARTY_EMOJI = [
   "💍", "👰", "🤵",                    // wedding
 ];
 
+// Pre-rasterize each emoji at a fixed size once, then draw via drawImage on
+// the particle canvas every frame. Canvas fillText with color emojis is
+// extremely slow per-frame; drawImage from a cached bitmap is ~50x faster.
+function buildEmojiCache(size: number): Map<string, HTMLCanvasElement> {
+  const cache = new Map<string, HTMLCanvasElement>();
+  for (const e of PARTY_EMOJI) {
+    if (cache.has(e)) continue;
+    const c = document.createElement("canvas");
+    c.width = size;
+    c.height = size;
+    const cx = c.getContext("2d")!;
+    cx.font = `${size * 0.85}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    cx.textAlign = "center";
+    cx.textBaseline = "middle";
+    cx.fillText(e, size / 2, size / 2);
+    cache.set(e, c);
+  }
+  return cache;
+}
+
 function ConfettiCanvas({ density = 1 }: { density?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d", { alpha: true })!;
+    // Render at a fixed emoji bitmap size (we scale via ctx.scale for variety)
+    const EMOJI_TEX_SIZE = 64;
+    const emojiCache = buildEmojiCache(EMOJI_TEX_SIZE);
+
     let particles: EmojiParticle[] = [];
+    // Cap particle count so the animation stays smooth even on weak phones.
+    const MAX_PARTICLES = Math.floor(60 * density);
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      // DPR-aware sizing keeps the canvas sharp without blowing up cost.
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
     window.addEventListener("resize", resize);
 
+    const W = () => window.innerWidth;
+    const H = () => window.innerHeight;
+
     const spawn = () => {
+      if (particles.length >= MAX_PARTICLES) return;
       const count = Math.floor(2 * density);
       for (let i = 0; i < count; i++) {
+        if (particles.length >= MAX_PARTICLES) break;
         particles.push({
-          x: Math.random() * canvas.width,
+          x: Math.random() * W(),
           y: -40,
           vx: (Math.random() - 0.5) * 3,
-          vy: 1 + Math.random() * 3.5,
+          vy: 3 + Math.random() * 4,
           rot: Math.random() * 360,
           vrot: (Math.random() - 0.5) * 10,
-          size: 28 + Math.random() * 28, // 28-56px emoji
+          size: 32 + Math.random() * 32, // 32-64px draw size
           emoji: PARTY_EMOJI[Math.floor(Math.random() * PARTY_EMOJI.length)],
           bobPhase: Math.random() * Math.PI * 2,
         });
@@ -185,24 +221,27 @@ function ConfettiCanvas({ density = 1 }: { density?: number }) {
     let raf = 0;
     let frame = 0;
     const tick = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, W(), H());
       spawn();
       frame++;
-      particles = particles.filter(p => p.y < canvas.height + 60);
+      // Update + draw in a single pass
+      const next: EmojiParticle[] = [];
       for (const p of particles) {
-        // Wobble side-to-side
         p.x += p.vx + Math.sin(frame * 0.04 + p.bobPhase) * 0.6;
         p.y += p.vy;
         p.rot += p.vrot;
+        if (p.y > H() + 60) continue;
+        next.push(p);
+        const tex = emojiCache.get(p.emoji);
+        if (!tex) continue;
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate((p.rot * Math.PI) / 180);
-        ctx.font = `${p.size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(p.emoji, 0, 0);
+        const half = p.size / 2;
+        ctx.drawImage(tex, -half, -half, p.size, p.size);
         ctx.restore();
       }
+      particles = next;
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -217,63 +256,6 @@ function ConfettiCanvas({ density = 1 }: { density?: number }) {
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none z-30"
     />
-  );
-}
-
-// ── Floating chaos: emojis flying across the screen in random directions ──
-function FloatingChaos() {
-  const items = useMemo(() => {
-    const arr: { emoji: string; left: string; top: string; size: number; delay: number; dur: number; dir: number }[] = [];
-    for (let i = 0; i < 14; i++) {
-      arr.push({
-        emoji: PARTY_EMOJI[Math.floor(Math.random() * PARTY_EMOJI.length)],
-        left: `${Math.random() * 90 + 5}%`,
-        top: `${Math.random() * 80 + 10}%`,
-        size: 40 + Math.floor(Math.random() * 60),
-        delay: Math.random() * 3,
-        dur: 2 + Math.random() * 3,
-        dir: Math.random() > 0.5 ? 1 : -1,
-      });
-    }
-    return arr;
-  }, []);
-
-  return (
-    <div className="fixed inset-0 pointer-events-none z-20 overflow-hidden">
-      {items.map((it, i) => (
-        <span
-          key={i}
-          className="absolute"
-          style={{
-            left: it.left,
-            top: it.top,
-            fontSize: it.size,
-            animation: `chaos-float-${i % 4} ${it.dur}s ease-in-out infinite ${it.delay}s alternate`,
-            filter: "drop-shadow(0 0 8px rgba(255,200,40,0.4))",
-          }}
-        >
-          {it.emoji}
-        </span>
-      ))}
-      <style jsx>{`
-        @keyframes chaos-float-0 {
-          0%   { transform: translate(0, 0) rotate(-15deg) scale(1); }
-          100% { transform: translate(40px, -30px) rotate(15deg) scale(1.2); }
-        }
-        @keyframes chaos-float-1 {
-          0%   { transform: translate(0, 0) rotate(10deg) scale(0.9); }
-          100% { transform: translate(-50px, 30px) rotate(-20deg) scale(1.15); }
-        }
-        @keyframes chaos-float-2 {
-          0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
-          100% { transform: translate(30px, 40px) rotate(360deg) scale(1.3); }
-        }
-        @keyframes chaos-float-3 {
-          0%   { transform: translate(0, 0) rotate(-25deg) scale(1.1); }
-          100% { transform: translate(-30px, -40px) rotate(25deg) scale(0.85); }
-        }
-      `}</style>
-    </div>
   );
 }
 
@@ -358,7 +340,6 @@ function CelebrationPhase({
       }}
     >
       <ConfettiCanvas density={4} />
-      <FloatingChaos />
 
       {/* Pulsing rings */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -477,7 +458,6 @@ function ShotsPhase({ onContinue }: { onContinue: () => void }) {
       }}
     >
       <ConfettiCanvas density={3} />
-      <FloatingChaos />
 
       <div className="relative z-10 text-center px-6">
         <p
