@@ -194,6 +194,7 @@ export function BattleScene({
             src={spriteUrl(state.player2.id)}
             alt={state.player2.name}
             className="pixel-art"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/sprites/matijamon.png"; }}
             style={{
               width: isMobile ? 130 : 230,
               height: isMobile ? 130 : 230,
@@ -238,6 +239,7 @@ export function BattleScene({
             src={spriteUrl(state.player1.id)}
             alt={state.player1.name}
             className="pixel-art"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/sprites/matijamon.png"; }}
             style={{
               width: isMobile ? 150 : 280,
               height: isMobile ? 150 : 280,

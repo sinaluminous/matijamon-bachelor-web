@@ -32,5 +32,7 @@ export function getFighter(id: string): Fighter | undefined {
 }
 
 export function spriteUrl(fighterId: string): string {
+  const fighter = getFighter(fighterId);
+  if (fighter && !fighter.has_sprite) return "/sprites/matijamon.png";
   return `/sprites/${fighterId}1.png`;
 }
