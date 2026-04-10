@@ -136,15 +136,32 @@ export async function applyDrinks(
   roomCode: string,
   penalties: DrinkPenalty[],
 ): Promise<void> {
-  const players = await getPlayers(roomCode);
+  if (penalties.length === 0) return;
+
+  // Aggregate by player name first. A single call often contains several
+  // penalty entries for the same player (mate chains, battle turns with
+  // multiple spectator-hit events, a groom who also got a direct drink on
+  // top of the groom tax, etc). Without aggregation, the per-player
+  // UPDATE would only record the LAST entry's delta because each write
+  // reads from the same stale fetched total_sips value.
+  const totals = new Map<string, { sips: number; shots: number }>();
   for (const pen of penalties) {
-    const player = players.find(p => p.name === pen.player_name);
+    const cur = totals.get(pen.player_name) ?? { sips: 0, shots: 0 };
+    cur.sips += pen.sips;
+    cur.shots += pen.shots;
+    totals.set(pen.player_name, cur);
+  }
+
+  const players = await getPlayers(roomCode);
+  for (const [name, delta] of totals) {
+    if (delta.sips === 0 && delta.shots === 0) continue;
+    const player = players.find(p => p.name === name);
     if (!player) continue;
     await supabase
       .from("players")
       .update({
-        total_sips: player.total_sips + pen.sips,
-        total_shots: player.total_shots + pen.shots,
+        total_sips: player.total_sips + delta.sips,
+        total_shots: player.total_shots + delta.shots,
       })
       .eq("id", player.id);
   }
