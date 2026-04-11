@@ -31,7 +31,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       try {
         // Parallel fetch for faster cold start
         const [room, ps] = await Promise.all([getRoom(code), getPlayers(code)]);
-        if (!room) { setError("Soba ne postoji ili je istekla"); setPhase("error"); return; }
+        if (!room) { setError("Room not found or expired"); setPhase("error"); return; }
         setState(room.state);
         setPlayers(ps);
         const token = getOrCreateSessionToken();
@@ -39,7 +39,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         if (existing) { setMe(existing); setPhase("in_game"); }
         else setPhase("name");
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Greska");
+        setError(e instanceof Error ? e.message : "Error");
         setPhase("error");
       }
     })();
@@ -99,7 +99,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       const player = await joinRoom(code, name, selectedFighter, isGroom, isKum);
       setMe(player);
       setPhase("in_game");
-    } catch (e) { setError(e instanceof Error ? e.message : "Greska"); }
+    } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(false);
   };
 
@@ -109,27 +109,27 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
         <p className="text-[#DC3232] text-xl mb-4">{error}</p>
-        <button onClick={() => router.push("/")} className="bg-[#FFC828] text-black px-6 py-3 rounded-lg">Natrag</button>
+        <button onClick={() => router.push("/")} className="bg-[#FFC828] text-black px-6 py-3 rounded-lg">Back</button>
       </div>
     );
   }
-  if (phase === "loading") return <div className="min-h-screen flex items-center justify-center text-zinc-400">Ucitavanje...</div>;
+  if (phase === "loading") return <div className="min-h-screen flex items-center justify-center text-zinc-400">Loading...</div>;
 
   if (phase === "name") {
     return (
       <div className="min-h-screen flex flex-col p-6 pt-12">
-        <p className="text-zinc-400 text-xs text-center mb-2">SOBA</p>
+        <p className="text-zinc-400 text-xs text-center mb-2">ROOM</p>
         <p className="text-[#FFC828] text-3xl text-center mb-8 tracking-[0.3em]">{code}</p>
-        <h1 className="text-2xl text-center mb-6 text-[#FFC828]">Kako se zoves?</h1>
+        <h1 className="text-2xl text-center mb-6 text-[#FFC828]">What's your name?</h1>
         <input
           type="text" value={name}
           onChange={(e) => setName(e.target.value.slice(0, 12))} maxLength={12}
-          placeholder="TVOJE IME"
+          placeholder="YOUR NAME"
           className="bg-[#1a1a28] border-2 border-[#FFC828] text-center text-2xl py-4 px-6 rounded-lg uppercase text-white focus:outline-none focus:border-[#FFD850] mb-6"
           autoFocus
         />
         <button onClick={handleNameSubmit} disabled={!name.trim()}
-          className="bg-[#FFC828] text-black font-bold py-4 text-xl rounded-lg disabled:opacity-30 active:scale-95">DALJE</button>
+          className="bg-[#FFC828] text-black font-bold py-4 text-xl rounded-lg disabled:opacity-30 active:scale-95">NEXT</button>
       </div>
     );
   }
@@ -138,8 +138,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="min-h-screen flex flex-col p-4 pt-6">
         <p className="text-center text-zinc-400 text-sm mb-2">{name}</p>
-        <h1 className="text-xl text-center mb-2 text-[#FFC828]">Odaberi lika</h1>
-        <p className="text-xs text-center text-zinc-500 mb-4">Matija = Mladozenja • Pasko = Kum</p>
+        <h1 className="text-xl text-center mb-2 text-[#FFC828]">Pick your fighter</h1>
+        <p className="text-xs text-center text-zinc-500 mb-4">Matija = Groom • Pasko = Best Man</p>
         <div className="grid grid-cols-3 gap-2 mb-6">
           {FIGHTERS.map((f) => {
             const isTaken = takenFighterIds.has(f.id);
@@ -154,18 +154,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 {f.has_sprite ? <img src={spriteUrl(f.id)} alt={f.name} className="w-full pixel-art" />
                   : <div className="w-full aspect-square flex items-center justify-center text-3xl text-zinc-500">?</div>}
                 <p className="text-[8px] mt-1 text-center text-white">{f.name}</p>
-                {f.is_groom && <p className="text-[6px] text-[#FFC828] text-center">MLADOZENJA</p>}
-                {f.is_kum && <p className="text-[6px] text-[#DCA014] text-center">KUM</p>}
-                {isTaken && <p className="text-[6px] text-red-500 text-center">UZET</p>}
+                {f.is_groom && <p className="text-[6px] text-[#FFC828] text-center">GROOM</p>}
+                {f.is_kum && <p className="text-[6px] text-[#DCA014] text-center">BEST MAN</p>}
+                {isTaken && <p className="text-[6px] text-red-500 text-center">TAKEN</p>}
               </button>
             );
           })}
         </div>
         <button onClick={handleJoin} disabled={!selectedFighter || busy}
           className="bg-[#FFC828] text-black font-bold py-4 text-xl rounded-lg disabled:opacity-30 active:scale-95">
-          {busy ? "..." : "UDJI U IGRU"}
+          {busy ? "..." : "JOIN GAME"}
         </button>
-        <button onClick={() => setPhase("name")} className="text-zinc-500 underline text-sm mt-3">Natrag</button>
+        <button onClick={() => setPhase("name")} className="text-zinc-500 underline text-sm mt-3">Back</button>
       </div>
     );
   }
@@ -209,10 +209,10 @@ function PlayerInGame({
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
         <img src={spriteUrl(me.fighter_id)} alt={me.name} className="w-32 h-32 pixel-art mb-4 animate-pulse-glow" />
         <h2 className="text-3xl text-[#FFC828] mb-2">{me.name}</h2>
-        <p className="text-zinc-500 text-sm mb-6">{me.is_groom ? "MLADOZENJA" : me.is_kum ? "KUM" : "IGRAC"}</p>
-        <p className="text-zinc-400 text-sm mb-8 animate-pulse">Cekam pocetak igre...</p>
+        <p className="text-zinc-500 text-sm mb-6">{me.is_groom ? "GROOM" : me.is_kum ? "BEST MAN" : "PLAYER"}</p>
+        <p className="text-zinc-400 text-sm mb-8 animate-pulse">Waiting for the game to start...</p>
         <div className="bg-[#1a1a28] rounded-lg p-4 w-full max-w-sm">
-          <p className="text-xs text-zinc-500 mb-2">U IGRI ({players.length})</p>
+          <p className="text-xs text-zinc-500 mb-2">IN GAME ({players.length})</p>
           <div className="grid grid-cols-2 gap-2">
             {players.map((p) => (
               <div key={p.id} className="flex items-center gap-2 text-sm">
@@ -232,7 +232,7 @@ function PlayerInGame({
   if (state.phase === "ended") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-        <h1 className="text-3xl text-[#FFC828] mb-4">JUTRO POSLIJE</h1>
+        <h1 className="text-3xl text-[#FFC828] mb-4">THE MORNING AFTER</h1>
         <img src={spriteUrl(me.fighter_id)} alt={me.name} className="w-32 h-32 pixel-art my-6" />
         <p className="text-2xl text-white mb-2">{me.name}</p>
         <p className="text-3xl text-[#FFC828]">{formatDrinks(me.total_sips, me.total_shots)}</p>
@@ -256,14 +256,14 @@ function PlayerInGame({
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[8px] text-zinc-500">RUNDA</p>
+          <p className="text-[8px] text-zinc-500">ROUND</p>
           <p className="text-lg text-[#FFC828]">{state.current_round}</p>
         </div>
       </div>
 
       {/* Whose turn indicator */}
       <div className={`px-4 py-2 text-center text-xs ${isMyTurn ? "bg-[#FFC828] text-black animate-pulse" : "bg-[#1a1a28] text-zinc-400"}`}>
-        {isMyTurn ? "🎯 TVOJ RED!" : `▶ ${currentPlayer?.name || "..."} igra`}
+        {isMyTurn ? "🎯 YOUR TURN!" : `▶ ${currentPlayer?.name || "..."} is playing`}
       </div>
 
       {/* Main content area */}
@@ -306,24 +306,24 @@ function DrawPhase({ isMyTurn, currentPlayer, onDraw }: {
   if (isMyTurn) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center">
-        <p className="text-zinc-500 text-xs mb-4">TI SI NA REDU</p>
-        <p className="text-2xl text-[#FFC828] mb-8 animate-pulse">VUCI KARTU!</p>
+        <p className="text-zinc-500 text-xs mb-4">YOU'RE UP</p>
+        <p className="text-2xl text-[#FFC828] mb-8 animate-pulse">DRAW A CARD!</p>
         <button onClick={onDraw}
           className="bg-[#FFC828] text-black font-bold py-8 px-12 text-3xl rounded-2xl active:scale-95 shadow-2xl">
-          🎴 VUCI
+          🎴 DRAW
         </button>
-        <p className="text-zinc-500 text-xs mt-6">(ili klikni na TV-u)</p>
+        <p className="text-zinc-500 text-xs mt-6">(or tap on the TV)</p>
       </div>
     );
   }
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center">
-      <p className="text-zinc-500 text-xs mb-2">SLJEDECI:</p>
+      <p className="text-zinc-500 text-xs mb-2">UP NEXT:</p>
       {currentPlayer && (
         <>
           <img src={spriteUrl(currentPlayer.fighter_id)} alt={currentPlayer.name} className="w-24 h-24 pixel-art mb-3" />
           <p className="text-3xl text-[#FFC828]">{currentPlayer.name}</p>
-          <p className="text-zinc-500 text-xs mt-6">👀 Pogledaj TV</p>
+          <p className="text-zinc-500 text-xs mt-6">👀 Watch the TV</p>
         </>
       )}
     </div>
@@ -367,7 +367,7 @@ function CardPhase({ card, role, isMyTurn, currentPlayer, players, me, actedOnCa
         </p>
         {card.content_b && (
           <>
-            <p className="text-center text-xs opacity-70 my-2" style={{ color: colors?.accent }}>— ILI —</p>
+            <p className="text-center text-xs opacity-70 my-2" style={{ color: colors?.accent }}>— OR —</p>
             <p
               className={`text-white text-center leading-snug font-bold ${
                 isActive ? "text-2xl py-4" : "text-lg py-2"
@@ -383,23 +383,23 @@ function CardPhase({ card, role, isMyTurn, currentPlayer, players, me, actedOnCa
           </p>
         )}
         {card.is_groom_targeted && (
-          <p className="text-center text-sm text-[#FFC828] mt-2 animate-pulse">★ MLADOZENJA ★</p>
+          <p className="text-center text-sm text-[#FFC828] mt-2 animate-pulse">★ GROOM ★</p>
         )}
       </div>
 
       {/* Spectator notice if not active */}
       {role === "spectator" && (
         <div className="bg-[#1a1a28]/50 border border-zinc-700 rounded-lg p-3 text-center">
-          <p className="text-zinc-400 text-sm">👀 Cekamo {currentPlayer?.name}...</p>
-          <p className="text-zinc-600 text-xs mt-1">Pogledaj TV</p>
+          <p className="text-zinc-400 text-sm">👀 Waiting for {currentPlayer?.name}...</p>
+          <p className="text-zinc-600 text-xs mt-1">Watch the TV</p>
         </div>
       )}
 
       {/* Acted notice */}
       {acted && role !== "spectator" && (
         <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-3 text-center">
-          <p className="text-green-400 text-sm">✓ Glas poslan</p>
-          <p className="text-zinc-500 text-xs mt-1">Pogledaj TV za rezultate</p>
+          <p className="text-green-400 text-sm">✓ Vote sent</p>
+          <p className="text-zinc-500 text-xs mt-1">Check the TV for results</p>
         </div>
       )}
 
@@ -418,17 +418,17 @@ function CardActions({ card, role, players, me, onAction }: {
   card: GameCard; role: string; players: PlayerRow[]; me: PlayerRow;
   onAction: (type: string, payload?: Record<string, unknown>) => void;
 }) {
-  // NHIE: everyone presses "ja sam" or "nisam"
+  // NHIE: everyone presses "I have" or "I haven't"
   if (card.card_type === "nhie") {
     return (
       <div className="flex flex-col gap-3">
         <button onClick={() => onAction("nhie_done", { did: true })}
           className="bg-[#DC3232] text-white font-bold py-6 rounded-lg active:scale-95">
-          🍺 JESAM (PIJES)
+          🍺 I HAVE (DRINK)
         </button>
         <button onClick={() => onAction("nhie_done", { did: false })}
           className="bg-[#28A050] text-white font-bold py-6 rounded-lg active:scale-95">
-          ✓ NISAM
+          ✓ I HAVEN'T
         </button>
       </div>
     );
@@ -440,11 +440,11 @@ function CardActions({ card, role, players, me, onAction }: {
       <div className="flex flex-col gap-3">
         <button onClick={() => onAction("did_it")}
           className="bg-[#28A050] text-white font-bold py-6 rounded-lg active:scale-95">
-          ✓ {card.card_type === "truth" ? "ODGOVORIO" : "URADIO"}
+          ✓ {card.card_type === "truth" ? "ANSWERED" : "DID IT"}
         </button>
         <button onClick={() => onAction("chicken")}
           className="bg-[#DC3232] text-white font-bold py-6 rounded-lg active:scale-95">
-          🐔 KUKAVICA — PIJEM RADIJE
+          🐔 CHICKEN — I'LL DRINK
         </button>
       </div>
     );
@@ -452,8 +452,8 @@ function CardActions({ card, role, players, me, onAction }: {
 
   // WYR + Hot Take: binary
   if (card.card_type === "wyr" || card.card_type === "hot_take") {
-    const labelA = card.card_type === "hot_take" ? "ZA" : "A";
-    const labelB = card.card_type === "hot_take" ? "PROTIV" : "B";
+    const labelA = card.card_type === "hot_take" ? "AGREE" : "A";
+    const labelB = card.card_type === "hot_take" ? "DISAGREE" : "B";
     return (
       <div className="flex gap-3">
         <button onClick={() => onAction("vote", { choice: "a" })}
@@ -475,10 +475,10 @@ function CardActions({ card, role, players, me, onAction }: {
       ? players.filter(p => p.id !== me.id)
       : players;
     const helperText = card.card_type === "mate"
-      ? "Odaberi pajdasa — od sad pijete zajedno!"
+      ? "Pick a mate — from now on you drink together!"
       : card.card_type === "who_in_room"
-        ? "Odaberi nekog tko ce piti"
-        : "Glasaj za jednog";
+        ? "Pick someone who'll drink"
+        : "Vote for one";
     return (
       <div className="space-y-3">
         <p className="text-center text-zinc-400 text-sm">{helperText}</p>
@@ -502,7 +502,7 @@ function CardActions({ card, role, players, me, onAction }: {
     return (
       <button onClick={() => onAction("acknowledge")}
         className="bg-[#FFC828] text-black font-bold py-6 text-xl rounded-lg active:scale-95">
-        REKAO PRAVILO
+        RULE ANNOUNCED
       </button>
     );
   }
@@ -510,7 +510,7 @@ function CardActions({ card, role, players, me, onAction }: {
   // Boss fight or other passive
   return (
     <div className="text-center">
-      <p className="text-zinc-500">👀 Pogledaj TV</p>
+      <p className="text-zinc-500">👀 Watch the TV</p>
     </div>
   );
 }
@@ -540,7 +540,7 @@ function PhoneBattleView({ state, me }: { state: GameState; me: PlayerRow; code:
     return (
       <div className="text-center mt-12">
         <p className="text-2xl text-[#FFC828] mb-2">⚔ BOSS FIGHT ⚔</p>
-        <p className="text-zinc-400 text-sm">Pripremam borbu...</p>
+        <p className="text-zinc-400 text-sm">Setting up the battle...</p>
       </div>
     );
   }
@@ -553,7 +553,7 @@ function PhoneBattleView({ state, me }: { state: GameState; me: PlayerRow; code:
   if (battle.resolved) {
     return (
       <div className="text-center mt-6">
-        <p className="text-3xl text-[#FFC828] mb-4">⚔ KRAJ BORBE ⚔</p>
+        <p className="text-3xl text-[#FFC828] mb-4">⚔ BATTLE OVER ⚔</p>
         <p className="text-white text-lg">{battle.message}</p>
       </div>
     );
@@ -566,10 +566,10 @@ function PhoneBattleView({ state, me }: { state: GameState; me: PlayerRow; code:
       <div className="bg-[#1a1a28] border-2 border-[#FFC828] rounded-xl p-4 text-center">
         <p className="text-[#FFC828] text-sm mb-2">⚔ BOSS FIGHT ⚔</p>
         <p className="text-white text-lg">{battle.p1_name} VS {battle.p2_name}</p>
-        {isFighting && <p className="text-[#FFC828] text-xs mt-2">TI SE BORIS!</p>}
+        {isFighting && <p className="text-[#FFC828] text-xs mt-2">YOU'RE IN THIS FIGHT!</p>}
       </div>
       <div className="bg-[#1a1a28]/50 border border-zinc-700 rounded-lg p-3 text-center">
-        <p className="text-zinc-400 text-sm">👀 Pogledaj TV — borba ide sama!</p>
+        <p className="text-zinc-400 text-sm">👀 Watch the TV — auto battle!</p>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <MiniFighterCard name={battle.p1_name} fighter_id={battle.p1_fighter_id} hp={battle.p1_hp} max_hp={battle.p1_max_hp} highlight={isP1} />
@@ -632,7 +632,7 @@ function MiniHUD({ players, currentPlayerName, meId }: {
               <p className={`text-[7px] mt-0.5 ${isCurrent ? "text-[#FFC828]" : "text-white"}`}>
                 {p.is_groom && "★"}{p.name.slice(0, 6)}
               </p>
-              <p className="text-[7px] text-[#FFC828]">{p.total_sips}g</p>
+              <p className="text-[7px] text-[#FFC828]">{p.total_sips}s</p>
             </div>
           );
         })}

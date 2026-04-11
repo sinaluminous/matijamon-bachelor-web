@@ -235,7 +235,7 @@ export default function LocalGamePage() {
         const loserName = cur.state.winnerId === cur.p1Player.fighter_id ? cur.p2Player.name : cur.p1Player.name;
         const koPenalties: DrinkPenalty[] = [{
           player_name: loserName, sips: 3, shots: 0,
-          reason: `Gubitnik MATIJAMON borbe pije 3!`,
+          reason: `Loser of MATIJAMON battle drinks 3!`,
         }];
         applyDrinks(koPenalties);
         const finished: ActiveBattle = {
@@ -328,7 +328,7 @@ export default function LocalGamePage() {
   const handleNhieDone = (player: LocalPlayer, did: boolean) => {
     if (!card) return;
     if (did) {
-      applyDrinks([{ player_name: player.name, sips: card.drink_penalty, shots: 0, reason: "Ja sam!" }]);
+      applyDrinks([{ player_name: player.name, sips: card.drink_penalty, shots: 0, reason: "I have!" }]);
     }
     setTimeout(() => advanceTurn(), 800);
   };
@@ -337,10 +337,10 @@ export default function LocalGamePage() {
     if (!card || players.length === 0) return;
     const current = players[currentPlayerIdx];
     if (!didIt) {
-      applyDrinks([{ player_name: current.name, sips: card.drink_penalty_skip, shots: 0, reason: "KUKAVICA!" }]);
+      applyDrinks([{ player_name: current.name, sips: card.drink_penalty_skip, shots: 0, reason: "CHICKEN!" }]);
       setPlayers(prev => prev.map((p, i) => i === currentPlayerIdx ? { ...p, chickened_out_count: p.chickened_out_count + 1 } : p));
     } else if (card.card_type === "groom_special" && current.is_groom) {
-      applyDrinks([{ player_name: current.name, sips: card.drink_penalty, shots: 0, reason: "Mladozenja pije svejedno!" }]);
+      applyDrinks([{ player_name: current.name, sips: card.drink_penalty, shots: 0, reason: "Groom drinks anyway!" }]);
     }
     setTimeout(() => advanceTurn(), didIt && card.card_type !== "groom_special" ? 200 : 1500);
   };
@@ -363,7 +363,7 @@ export default function LocalGamePage() {
       if (aCount === bCount) losers = players;
       else if (aCount < bCount) losers = players.filter(p => newVotes[p.id] === "a");
       else losers = players.filter(p => newVotes[p.id] === "b");
-      const penalties = losers.map(p => ({ player_name: p.name, sips: card.drink_penalty, shots: 0, reason: "MANJINA PIJE!" }));
+      const penalties = losers.map(p => ({ player_name: p.name, sips: card.drink_penalty, shots: 0, reason: "MINORITY DRINKS!" }));
       applyDrinks(penalties);
       setVoteState(null);
       setCardPhase("result");
@@ -392,7 +392,7 @@ export default function LocalGamePage() {
       }
       const max = Math.max(...Object.values(tally));
       const winners = Object.entries(tally).filter(([, c]) => c === max).map(([n]) => n);
-      const penalties = winners.map(name => ({ player_name: name, sips: card.drink_penalty, shots: 0, reason: `${max} glasova!` }));
+      const penalties = winners.map(name => ({ player_name: name, sips: card.drink_penalty, shots: 0, reason: `${max} votes!` }));
       applyDrinks(penalties);
       setVoteState(null);
       setCardPhase("result");
@@ -402,7 +402,7 @@ export default function LocalGamePage() {
 
   const handleSinglePick = (targetName: string) => {
     if (!card) return;
-    const penalties: DrinkPenalty[] = [{ player_name: targetName, sips: card.drink_penalty, shots: 0, reason: `${targetName} pije ${card.drink_penalty}!` }];
+    const penalties: DrinkPenalty[] = [{ player_name: targetName, sips: card.drink_penalty, shots: 0, reason: `${targetName} drinks ${card.drink_penalty}!` }];
     applyDrinks(penalties);
     setTimeout(() => advanceTurn(), 1500);
   };
@@ -417,7 +417,7 @@ export default function LocalGamePage() {
       if (p.name === matePlayerName) return { ...p, mates: [...p.mates, current.name] };
       return p;
     }));
-    setResultMessage(`${current.name} <3 ${matePlayerName} — pajdasi su!`);
+    setResultMessage(`${current.name} <3 ${matePlayerName} — they're mates!`);
     setCardPhase("result");
     setTimeout(() => advanceTurn(), 2500);
   };
@@ -427,7 +427,7 @@ export default function LocalGamePage() {
   // Admin
   const restartGame = () => {
     setConfirmDialog({
-      message: "Sigurno restartati igru?",
+      message: "Restart the game?",
       onYes: () => {
         setPlayers(prev => prev.map(p => ({ ...p, total_sips: 0, total_shots: 0, chickened_out_count: 0, cards_drawn: 0, mates: [] })));
         setPhase("playing");
@@ -445,14 +445,14 @@ export default function LocalGamePage() {
 
   const endGameNow = () => {
     setConfirmDialog({
-      message: "Zavrsiti igru?",
+      message: "End the game now?",
       onYes: () => { setPhase("ended"); playRandomTrack(["We Are The Champions"]); setConfirmDialog(null); },
     });
   };
 
   const exitGame = () => {
     setConfirmDialog({
-      message: "Izlaz iz igre?",
+      message: "Quit the game?",
       onYes: () => {
         if (audioRef.current) audioRef.current.pause();
         router.push("/");
@@ -462,7 +462,7 @@ export default function LocalGamePage() {
 
   const backToSetup = () => {
     setConfirmDialog({
-      message: "Vratiti se na odabir likova?",
+      message: "Back to character selection?",
       onYes: () => {
         setPhase("setup");
         setPlayers([]);
@@ -497,9 +497,9 @@ export default function LocalGamePage() {
           }))}
           actions={
             <>
-              <button onClick={restartGame} className="bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-3 px-6 rounded-lg">🔄 NOVA IGRA</button>
-              <button onClick={() => setPhase("setup")} className="bg-[#28508C] hover:bg-[#3264B4] text-white font-bold py-3 px-6 rounded-lg">👥 NOVI IGRACI</button>
-              <button onClick={() => router.push("/")} className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg">❌ IZLAZ</button>
+              <button onClick={restartGame} className="bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-3 px-6 rounded-lg">🔄 NEW GAME</button>
+              <button onClick={() => setPhase("setup")} className="bg-[#28508C] hover:bg-[#3264B4] text-white font-bold py-3 px-6 rounded-lg">👥 NEW PLAYERS</button>
+              <button onClick={() => router.push("/")} className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg">❌ QUIT</button>
             </>
           }
         />
@@ -517,17 +517,17 @@ export default function LocalGamePage() {
       {/* Top bar */}
       <div className="px-6 py-3 bg-black/60 flex justify-between items-center border-b border-[#FFC828]/30">
         <div className="text-base">
-          <span className="text-zinc-400">Runda </span>
+          <span className="text-zinc-400">Round </span>
           <span className="text-[#FFC828] font-bold">{currentRound}</span>
           <span className="text-zinc-400">: </span>
           <span className="text-[#FFC828]">{ROUND_NAMES[currentRound]}</span>
         </div>
         <div className="text-base text-zinc-400">
-          Karta <span className="text-white">{cardsInRound + 1}</span>/{CARDS_PER_ROUND}
+          Card <span className="text-white">{cardsInRound + 1}</span>/{CARDS_PER_ROUND}
         </div>
         <button onClick={() => setShowAdminPanel(p => !p)}
           className="text-sm text-zinc-500 hover:text-white px-3 py-1 border border-zinc-700 rounded">
-          {showAdminPanel ? "Sakrij" : "Admin"}
+          {showAdminPanel ? "Hide" : "Admin"}
         </button>
       </div>
 
@@ -536,7 +536,7 @@ export default function LocalGamePage() {
         <div className="px-6 py-4 bg-gradient-to-r from-transparent via-[#FFC828]/10 to-transparent flex items-center justify-center gap-4">
           <img src={spriteUrl(currentPlayer.fighter_id)} alt={currentPlayer.name} className="w-16 h-16 pixel-art" />
           <div>
-            <p className="text-xs text-zinc-500 uppercase">Na potezu</p>
+            <p className="text-xs text-zinc-500 uppercase">Up next</p>
             <p className="text-3xl text-[#FFC828] font-bold">
               {currentPlayer.is_groom && "★ "}{currentPlayer.is_kum && "+ "}{currentPlayer.name}
             </p>
@@ -551,10 +551,10 @@ export default function LocalGamePage() {
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-4 overflow-y-auto">
         {cardPhase === "draw" && currentPlayer && (
           <div className="text-center">
-            <p className="text-2xl text-zinc-400 mb-6">{currentPlayer.name}, vuci kartu!</p>
+            <p className="text-2xl text-zinc-400 mb-6">{currentPlayer.name}, draw a card!</p>
             <button onClick={drawNewCard}
               className="bg-[#FFC828] text-black font-bold py-6 px-12 text-3xl rounded-xl hover:bg-[#FFD850] transition animate-pulse-glow">
-              🎴 VUCI KARTU
+              🎴 DRAW CARD
             </button>
           </div>
         )}
@@ -586,9 +586,9 @@ export default function LocalGamePage() {
 
         {cardPhase === "result" && resultMessage && (
           <div className="bg-[#1a1a28] border-4 border-[#FFC828] rounded-2xl p-8 max-w-2xl text-center">
-            <h2 className="text-4xl text-[#FFC828] mb-6">REZULTAT</h2>
+            <h2 className="text-4xl text-[#FFC828] mb-6">RESULT</h2>
             <pre className="text-xl text-white whitespace-pre-wrap font-sans">{resultMessage}</pre>
-            <button onClick={advanceTurn} className="mt-6 bg-[#FFC828] text-black font-bold py-3 px-8 rounded-lg">DALJE</button>
+            <button onClick={advanceTurn} className="mt-6 bg-[#FFC828] text-black font-bold py-3 px-8 rounded-lg">NEXT</button>
           </div>
         )}
 
@@ -611,7 +611,7 @@ export default function LocalGamePage() {
               <div className="text-center mt-4">
                 <button onClick={finishBattle}
                   className="bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-xl hover:bg-[#FFD850] active:scale-95">
-                  KRAJ BORBE
+                  END BATTLE
                 </button>
               </div>
             )}
@@ -625,40 +625,40 @@ export default function LocalGamePage() {
       {/* Admin panel */}
       {showAdminPanel && (
         <div className="fixed top-20 right-4 bg-black/90 border-2 border-[#FFC828]/50 rounded-lg p-3 w-64 z-40 max-h-[calc(100vh-100px)] overflow-y-auto">
-          <p className="text-xs text-[#FFC828] mb-2 font-bold">ADMIN (LOKALNO)</p>
+          <p className="text-xs text-[#FFC828] mb-2 font-bold">ADMIN (LOCAL)</p>
 
-          <p className="text-[9px] text-zinc-500 mb-1 mt-2">TIJEK IGRE</p>
+          <p className="text-[9px] text-zinc-500 mb-1 mt-2">GAME FLOW</p>
           <div className="flex flex-col gap-1.5">
             <button onClick={drawNewCard} disabled={cardPhase !== "draw"}
               className="bg-[#28A050] hover:bg-[#3CB464] text-white text-xs py-2 rounded disabled:opacity-30">
-              🎴 Vuci kartu
+              🎴 Draw card
             </button>
             <button onClick={advanceTurn} disabled={cardPhase === "draw"}
               className="bg-[#28508C] hover:bg-[#3264B4] text-white text-xs py-2 rounded disabled:opacity-30">
-              ⏭ Sljedeci red
+              ⏭ Next turn
             </button>
           </div>
 
-          <p className="text-[9px] text-zinc-500 mb-1 mt-3">UPRAVLJANJE</p>
+          <p className="text-[9px] text-zinc-500 mb-1 mt-3">CONTROL</p>
           <div className="flex flex-col gap-1.5">
             <button onClick={backToSetup} className="bg-[#7828A0] hover:bg-[#9438C0] text-white text-xs py-2 rounded">
-              👥 Promijeni igrace
+              👥 Change players
             </button>
             <button onClick={restartGame} className="bg-[#B46414] hover:bg-[#D47828] text-white text-xs py-2 rounded">
-              🔄 Restartaj
+              🔄 Restart
             </button>
             <button onClick={endGameNow} className="bg-[#DC3232] hover:bg-[#FF4848] text-white text-xs py-2 rounded">
-              🏁 Zavrsi → rezultati
+              🏁 End → results
             </button>
             <button onClick={exitGame} className="bg-zinc-700 hover:bg-zinc-600 text-white text-xs py-2 rounded">
-              ❌ Izlaz
+              ❌ Quit
             </button>
           </div>
 
           {/* Music */}
-          <p className="text-[9px] text-zinc-500 mb-1 mt-3">MUZIKA</p>
+          <p className="text-[9px] text-zinc-500 mb-1 mt-3">MUSIC</p>
           <div className="bg-black/50 rounded px-2 py-1 mb-2 h-5 overflow-hidden">
-            <p className="text-[9px] text-zinc-400 truncate">{currentTrack ? `♪ ${currentTrack}` : "— nema —"}</p>
+            <p className="text-[9px] text-zinc-400 truncate">{currentTrack ? `♪ ${currentTrack}` : "— none —"}</p>
           </div>
           <div className="flex gap-1 mb-2">
             <button onClick={prevTrack} className="flex-1 bg-zinc-800 text-white text-xs py-1.5 rounded">⏮</button>
@@ -741,9 +741,9 @@ function SetupScreen({ onStart, onCancel }: { onStart: (players: LocalPlayer[]) 
   if (step === "count") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0c14] text-white p-8">
-        <h1 className="text-5xl text-[#FFC828] mb-2 tracking-wider">LOKALNO</h1>
-        <p className="text-zinc-500 text-sm mb-12">1 ekran • 0 telefona • 0 interneta</p>
-        <p className="text-2xl text-white mb-6">Kolko vas je?</p>
+        <h1 className="text-5xl text-[#FFC828] mb-2 tracking-wider">LOCAL</h1>
+        <p className="text-zinc-500 text-sm mb-12">1 screen • 0 phones • 0 internet</p>
+        <p className="text-2xl text-white mb-6">How many of you?</p>
         <div className="flex items-center gap-6 mb-8">
           <button onClick={() => setPlayerCount(c => Math.max(2, c - 1))}
             className="bg-zinc-800 hover:bg-zinc-700 text-white text-3xl w-16 h-16 rounded-full">−</button>
@@ -751,12 +751,12 @@ function SetupScreen({ onStart, onCancel }: { onStart: (players: LocalPlayer[]) 
           <button onClick={() => setPlayerCount(c => Math.min(15, c + 1))}
             className="bg-zinc-800 hover:bg-zinc-700 text-white text-3xl w-16 h-16 rounded-full">+</button>
         </div>
-        <p className="text-zinc-500 text-xs mb-8">2-15 igraca</p>
+        <p className="text-zinc-500 text-xs mb-8">2-15 players</p>
         <button onClick={handleConfirmCount}
           className="bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-lg hover:bg-[#FFD850]">
-          DALJE
+          NEXT
         </button>
-        <button onClick={onCancel} className="text-zinc-500 underline text-sm mt-4">Natrag</button>
+        <button onClick={onCancel} className="text-zinc-500 underline text-sm mt-4">Back</button>
       </div>
     );
   }
@@ -764,9 +764,9 @@ function SetupScreen({ onStart, onCancel }: { onStart: (players: LocalPlayer[]) 
   // step === "pick"
   return (
     <div className="min-h-screen flex flex-col items-center bg-[#0c0c14] text-white p-6">
-      <h2 className="text-2xl text-[#FFC828] mb-2">IGRAC {pickingIdx + 1} OD {playerCount}</h2>
-      <p className="text-sm text-zinc-500 mb-4">Odaberi svog lika</p>
-      <p className="text-xs text-zinc-600 mb-6">Matija = Mladozenja • Pasko = Kum</p>
+      <h2 className="text-2xl text-[#FFC828] mb-2">PLAYER {pickingIdx + 1} OF {playerCount}</h2>
+      <p className="text-sm text-zinc-500 mb-4">Pick your fighter</p>
+      <p className="text-xs text-zinc-600 mb-6">Matija = Groom • Pasko = Best Man</p>
 
       <div className="grid grid-cols-3 md:grid-cols-5 gap-3 max-w-4xl w-full mb-6">
         {FIGHTERS.map(f => {
@@ -782,9 +782,9 @@ function SetupScreen({ onStart, onCancel }: { onStart: (players: LocalPlayer[]) 
                 ? <img src={spriteUrl(f.id)} alt={f.name} className="w-full pixel-art" />
                 : <div className="w-full aspect-square flex items-center justify-center text-3xl text-zinc-500">?</div>}
               <p className="text-[10px] mt-1 text-center text-white">{f.name}</p>
-              {f.is_groom && <p className="text-[8px] text-[#FFC828] text-center">MLADOZENJA</p>}
-              {f.is_kum && <p className="text-[8px] text-[#DCA014] text-center">KUM</p>}
-              {isPicked && <p className="text-[8px] text-red-500 text-center">UZET</p>}
+              {f.is_groom && <p className="text-[8px] text-[#FFC828] text-center">GROOM</p>}
+              {f.is_kum && <p className="text-[8px] text-[#DCA014] text-center">BEST MAN</p>}
+              {isPicked && <p className="text-[8px] text-red-500 text-center">TAKEN</p>}
             </button>
           );
         })}
@@ -793,7 +793,7 @@ function SetupScreen({ onStart, onCancel }: { onStart: (players: LocalPlayer[]) 
       {/* Already picked */}
       {picks.length > 0 && (
         <div className="bg-[#1a1a28] rounded-lg p-3 max-w-md w-full mb-4">
-          <p className="text-xs text-zinc-500 mb-2">ODABRANI ({picks.length}/{playerCount})</p>
+          <p className="text-xs text-zinc-500 mb-2">SELECTED ({picks.length}/{playerCount})</p>
           <div className="flex flex-wrap gap-2">
             {picks.map((fid, i) => {
               const f = FIGHTERS.find(x => x.id === fid);
@@ -808,7 +808,7 @@ function SetupScreen({ onStart, onCancel }: { onStart: (players: LocalPlayer[]) 
         </div>
       )}
 
-      <button onClick={undoPick} className="text-zinc-500 underline text-sm">← Vrati zadnji odabir</button>
+      <button onClick={undoPick} className="text-zinc-500 underline text-sm">← Undo last pick</button>
     </div>
   );
 }
@@ -846,7 +846,7 @@ function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onSt
         <p className="text-2xl md:text-4xl text-center leading-relaxed py-6">{card.content}</p>
         {card.content_b && (
           <>
-            <p className="text-center text-xl my-2 opacity-70">— ILI —</p>
+            <p className="text-center text-xl my-2 opacity-70">— OR —</p>
             <p className="text-2xl md:text-4xl text-center leading-relaxed py-6">{card.content_b}</p>
           </>
         )}
@@ -854,7 +854,7 @@ function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onSt
           <p className="text-center text-lg mt-4" style={{ color: colors?.accent }}>{card.instruction}</p>
         )}
         {card.is_groom_targeted && (
-          <p className="text-center text-2xl mt-4 text-[#FFC828] animate-pulse">★ MLADOZENJA ★</p>
+          <p className="text-center text-2xl mt-4 text-[#FFC828] animate-pulse">★ GROOM ★</p>
         )}
       </div>
 
@@ -865,11 +865,11 @@ function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onSt
           <div className="flex gap-3 w-full max-w-2xl">
             <button onClick={() => onTruthDare(true)}
               className="flex-1 bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-6 text-2xl rounded-lg active:scale-95">
-              ✓ {card.card_type === "truth" ? "ODGOVORIO" : "URADIO"}
+              ✓ {card.card_type === "truth" ? "ANSWERED" : "DID IT"}
             </button>
             <button onClick={() => onTruthDare(false)}
               className="flex-1 bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-6 text-2xl rounded-lg active:scale-95">
-              🐔 KUKAVICA
+              🐔 CHICKEN
             </button>
           </div>
         )}
@@ -883,7 +883,7 @@ function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onSt
         {(card.card_type === "wyr" || card.card_type === "hot_take") && (
           <button onClick={onStartVote}
             className="bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-lg hover:bg-[#FFD850] active:scale-95">
-            POCNI GLASANJE ({players.length} igraca)
+            START VOTE ({players.length} players)
           </button>
         )}
 
@@ -891,14 +891,14 @@ function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onSt
         {card.card_type === "most_likely" && (
           <button onClick={onStartPick}
             className="bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-lg hover:bg-[#FFD850] active:scale-95">
-            POCNI GLASANJE ({players.length} igraca)
+            START VOTE ({players.length} players)
           </button>
         )}
 
         {/* Who in room — current player picks */}
         {card.card_type === "who_in_room" && currentPlayer && (
           <div className="w-full">
-            <p className="text-center text-zinc-400 mb-3">{currentPlayer.name}, odaberi nekog:</p>
+            <p className="text-center text-zinc-400 mb-3">{currentPlayer.name}, pick someone:</p>
             <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
               {players.map(p => (
                 <button key={p.id} onClick={() => onSinglePick(p.name)}
@@ -914,7 +914,7 @@ function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onSt
         {/* Mate — current player picks */}
         {card.card_type === "mate" && currentPlayer && (
           <div className="w-full">
-            <p className="text-center text-zinc-400 mb-3">{currentPlayer.name}, odaberi pajdasa (od sad pijete zajedno):</p>
+            <p className="text-center text-zinc-400 mb-3">{currentPlayer.name}, pick a mate (from now on you drink together):</p>
             <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
               {players.filter(p => p.id !== currentPlayer.id).map(p => (
                 <button key={p.id} onClick={() => onMatePick(p.name)}
@@ -931,7 +931,7 @@ function ShowCardLocal({ card, players, currentPlayer, onNhie, onTruthDare, onSt
         {(card.card_type === "categories" || card.card_type === "chaos" || card.card_type === "rule" || card.card_type === "boss_fight") && (
           <button onClick={onAdvance}
             className="bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-lg hover:bg-[#FFD850] active:scale-95">
-            DALJE
+            NEXT
           </button>
         )}
       </div>
@@ -953,7 +953,7 @@ function NhieRoundRobin({ players, onPlayerDone }: {
   };
   return (
     <div className="w-full max-w-2xl">
-      <p className="text-center text-zinc-400 mb-2">Igrac {idx + 1}/{players.length}</p>
+      <p className="text-center text-zinc-400 mb-2">Player {idx + 1}/{players.length}</p>
       <div className="flex items-center justify-center gap-3 mb-4">
         <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-16 h-16 pixel-art" />
         <p className="text-3xl text-[#FFC828]">{p.name}</p>
@@ -961,11 +961,11 @@ function NhieRoundRobin({ players, onPlayerDone }: {
       <div className="flex gap-3">
         <button onClick={() => handle(true)}
           className="flex-1 bg-[#DC3232] text-white font-bold py-6 text-xl rounded-lg active:scale-95">
-          🍺 JESAM (PIJES)
+          🍺 I HAVE (DRINK)
         </button>
         <button onClick={() => handle(false)}
           className="flex-1 bg-[#28A050] text-white font-bold py-6 text-xl rounded-lg active:scale-95">
-          ✓ NISAM
+          ✓ I HAVEN'T
         </button>
       </div>
     </div>
@@ -989,22 +989,22 @@ function VotingScreen({ card, players, voterIdx, onBinaryVote, onPickVote }: {
 
   return (
     <div className="w-full max-w-3xl">
-      <p className="text-center text-zinc-400 mb-1">Glas {voterIdx + 1}/{players.length}</p>
+      <p className="text-center text-zinc-400 mb-1">Vote {voterIdx + 1}/{players.length}</p>
       <div className="flex items-center justify-center gap-3 mb-6">
         <img src={spriteUrl(voter.fighter_id)} alt={voter.name} className="w-20 h-20 pixel-art" />
-        <p className="text-4xl text-[#FFC828]">{voter.name}, glasaj!</p>
+        <p className="text-4xl text-[#FFC828]">{voter.name}, vote!</p>
       </div>
 
       {isBinary && (
         <div className="flex gap-4">
           <button onClick={() => onBinaryVote("a")}
             className="flex-1 bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-12 text-3xl rounded-xl active:scale-95">
-            {card.card_type === "hot_take" ? "ZA" : "A"}
+            {card.card_type === "hot_take" ? "AGREE" : "A"}
             {card.card_type === "wyr" && <p className="text-sm mt-2 opacity-80 px-4">{card.content?.slice(0, 50)}</p>}
           </button>
           <button onClick={() => onBinaryVote("b")}
             className="flex-1 bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-12 text-3xl rounded-xl active:scale-95">
-            {card.card_type === "hot_take" ? "PROTIV" : "B"}
+            {card.card_type === "hot_take" ? "DISAGREE" : "B"}
             {card.card_type === "wyr" && <p className="text-sm mt-2 opacity-80 px-4">{card.content_b?.slice(0, 50)}</p>}
           </button>
         </div>
@@ -1044,7 +1044,7 @@ function PlayerHudLocal({ players, currentPlayerName }: { players: LocalPlayer[]
               <p className={`text-[8px] mt-0.5 ${isCurrent ? "text-[#FFC828]" : "text-white"}`}>
                 {p.is_groom && "★"}{p.name.slice(0, 7)}
               </p>
-              <p className="text-[8px] text-[#FFC828]">{p.total_sips}g{p.total_shots > 0 && ` ${p.total_shots}sh`}</p>
+              <p className="text-[8px] text-[#FFC828]">{p.total_sips}s{p.total_shots > 0 && ` ${p.total_shots}sh`}</p>
             </div>
           );
         })}
@@ -1063,8 +1063,8 @@ function ConfirmModal({ message, onYes, onCancel }: { message: string; onYes: ()
       <div className="bg-[#1a1a28] border-4 border-[#FFC828] rounded-2xl p-8 max-w-md text-center">
         <p className="text-xl text-white mb-6">{message}</p>
         <div className="flex gap-4 justify-center">
-          <button onClick={onYes} className="bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-3 px-8 rounded-lg">DA</button>
-          <button onClick={onCancel} className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-lg">NE</button>
+          <button onClick={onYes} className="bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-3 px-8 rounded-lg">YES</button>
+          <button onClick={onCancel} className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-lg">NO</button>
         </div>
       </div>
     </div>

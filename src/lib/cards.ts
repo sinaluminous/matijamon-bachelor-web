@@ -29,31 +29,31 @@ export const CARD_COLORS: Record<CardType, { bg: string; text: string; accent: s
 };
 
 export const CARD_TITLES: Record<CardType, string> = {
-  nhie:         "JA NIKAD NISAM",
-  truth:        "ISTINA",
-  dare:         "IZAZOV",
-  wyr:          "STO BI RADIJE",
-  most_likely:  "TKO CE NAJPRIJE...",
-  who_in_room:  "TKO U SOBI...",
-  hot_take:     "KONTROVERZNO",
-  categories:   "KATEGORIJE",
-  rule:         "NOVO PRAVILO",
-  mate:         "ODABERI PAJDASA",
-  groom_special:"MLADOZENJA",
+  nhie:         "NEVER HAVE I EVER",
+  truth:        "TRUTH",
+  dare:         "DARE",
+  wyr:          "WOULD YOU RATHER",
+  most_likely:  "MOST LIKELY TO...",
+  who_in_room:  "WHO IN THE ROOM...",
+  hot_take:     "HOT TAKE",
+  categories:   "CATEGORIES",
+  rule:         "NEW RULE",
+  mate:         "PICK A MATE",
+  groom_special:"GROOM",
   boss_fight:   "BOSS FIGHT!",
-  chaos:        "KAOS",
+  chaos:        "CHAOS",
 };
 
 export const ROUND_NAMES: Record<number, string> = {
-  1: "ZAGRIJAVANJE",
-  2: "MOMACKA",
-  3: "SUDNJI DAN",
+  1: "WARM-UP",
+  2: "BACHELOR",
+  3: "JUDGEMENT DAY",
 };
 
 export const ROUND_SUBTITLES: Record<number, string> = {
-  1: "Polako, brate",
-  2: "Sad krecu pravi decki pecki",
-  3: "Nema milosti",
+  1: "Easy, big guy",
+  2: "Now we're cooking",
+  3: "No mercy",
 };
 
 // Card type weights per round
@@ -65,23 +65,21 @@ const ROUND_WEIGHTS: Record<number, Record<CardType, number>> = {
 
 const ROUND_DRINK_MULTIPLIER: Record<number, number> = { 1: 1, 2: 2, 3: 3 };
 
-// Croatian pluralization
+// English pluralization helpers (kept under the old names so callers don't
+// have to change — they're only ever used to format drink counts).
 export function gutljaj(n: number): string {
-  if (n === 1) return `${n} gutljaj`;
-  return `${n} gutljaja`;
+  return n === 1 ? `${n} sip` : `${n} sips`;
 }
 
 export function shotic(n: number): string {
-  if (n === 1) return `${n} shot`;
-  if (n >= 2 && n <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) return `${n} shota`;
-  return `${n} shotova`;
+  return n === 1 ? `${n} shot` : `${n} shots`;
 }
 
 export function formatDrinks(sips: number, shots: number): string {
   const parts: string[] = [];
   if (sips > 0) parts.push(gutljaj(sips));
   if (shots > 0) parts.push(shotic(shots));
-  return parts.join(" + ") || "0 gutljaja";
+  return parts.join(" + ") || "0 sips";
 }
 
 // Simple weighted random
@@ -149,8 +147,8 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       const item = promptsData.NEVER_HAVE_I_EVER[idx];
       return {
         id, card_type: "nhie", title: CARD_TITLES.nhie,
-        content: "Ja nikad nisam " + item.text.replace(/^\.\.\./, "").trim(),
-        instruction: `Tko JE to napravio: PIJE ${gutljaj(mult)}!`,
+        content: "Never have I ever " + item.text.replace(/^\.\.\./, "").trim(),
+        instruction: `If you HAVE done it: DRINK ${gutljaj(mult)}!`,
         drink_penalty: mult, drink_penalty_skip: 0,
         is_groom_targeted: item.is_groom_targeted, target_type: "all",
       };
@@ -161,7 +159,7 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       return {
         id, card_type: "truth", title: CARD_TITLES.truth,
         content: item.text,
-        instruction: `Odgovori iskreno ili PIJE ${gutljaj(mult * 3)}!`,
+        instruction: `Answer honestly or DRINK ${gutljaj(mult * 3)}!`,
         drink_penalty: 0, drink_penalty_skip: mult * 3,
         is_groom_targeted: item.is_groom_targeted, target_type: "current",
       };
@@ -172,7 +170,7 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       return {
         id, card_type: "dare", title: CARD_TITLES.dare,
         content: item.text,
-        instruction: `Napravi to ili PIJE ${gutljaj(mult * 3)}!`,
+        instruction: `Do it or DRINK ${gutljaj(mult * 3)}!`,
         drink_penalty: 0, drink_penalty_skip: mult * 3,
         is_groom_targeted: item.is_groom_targeted, target_type: "current",
       };
@@ -183,7 +181,7 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       return {
         id, card_type: "wyr", title: CARD_TITLES.wyr,
         content: item.option_a, content_b: item.option_b,
-        instruction: `Manjina pije ${gutljaj(mult)}!`,
+        instruction: `Minority drinks ${gutljaj(mult)}!`,
         drink_penalty: mult, drink_penalty_skip: 0,
         is_groom_targeted: false, target_type: "vote",
       };
@@ -193,7 +191,7 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       return {
         id, card_type: "most_likely", title: CARD_TITLES.most_likely,
         content: promptsData.MOST_LIKELY_TO[idx],
-        instruction: `Svi glasaju! Najvise glasova pije ${gutljaj(mult * 2)}!`,
+        instruction: `Everyone votes! Most votes drinks ${gutljaj(mult * 2)}!`,
         drink_penalty: mult * 2, drink_penalty_skip: 0,
         is_groom_targeted: false, target_type: "vote",
       };
@@ -203,7 +201,7 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       return {
         id, card_type: "who_in_room", title: CARD_TITLES.who_in_room,
         content: promptsData.WHO_IN_THE_ROOM[idx],
-        instruction: `Odaberi nekog! Pije ${gutljaj(mult)}!`,
+        instruction: `Pick someone! They drink ${gutljaj(mult)}!`,
         drink_penalty: mult, drink_penalty_skip: 0,
         is_groom_targeted: false, target_type: "pick",
       };
@@ -213,7 +211,7 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       return {
         id, card_type: "hot_take", title: CARD_TITLES.hot_take,
         content: promptsData.HOT_TAKES[idx],
-        instruction: `Glasaj ZA/PROTIV! Manjina pije ${gutljaj(mult)}!`,
+        instruction: `Vote AGREE / DISAGREE! Minority drinks ${gutljaj(mult)}!`,
         drink_penalty: mult, drink_penalty_skip: 0,
         is_groom_targeted: false, target_type: "vote",
       };
@@ -223,7 +221,7 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       return {
         id, card_type: "categories", title: CARD_TITLES.categories,
         content: promptsData.CATEGORIES[idx],
-        instruction: `Nabrajajte! Tko zasteka pije ${gutljaj(mult * 2)}!`,
+        instruction: `Go around the room! Whoever stalls drinks ${gutljaj(mult * 2)}!`,
         drink_penalty: mult * 2, drink_penalty_skip: 0,
         is_groom_targeted: false, target_type: "all",
       };
@@ -232,9 +230,9 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       const idx = pickUnused("rule_examples", promptsData.RULE_EXAMPLES.length);
       return {
         id, card_type: "rule", title: CARD_TITLES.rule,
-        content: "Ti si KRALJ! Smisli pravilo koje traje do sljedece karte.",
-        content_b: `Primjer: "${promptsData.RULE_EXAMPLES[idx]}"`,
-        instruction: "Prekrsaj = 1 gutljaj!",
+        content: "You're the KING! Make a rule that lasts until the next card.",
+        content_b: `Example: "${promptsData.RULE_EXAMPLES[idx]}"`,
+        instruction: "Break it = drink 1!",
         drink_penalty: 0, drink_penalty_skip: 0,
         is_groom_targeted: false, target_type: "current",
       };
@@ -242,8 +240,8 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
     case "mate": {
       return {
         id, card_type: "mate", title: CARD_TITLES.mate,
-        content: "Odaberi pajdasa. Od sad, kad ti pijes - on/ona pije.",
-        instruction: "Biraj pametno... il zlocesto.",
+        content: "Pick a mate. From now on, when you drink — they drink too.",
+        instruction: "Choose wisely... or cruelly.",
         drink_penalty: 0, drink_penalty_skip: 0,
         is_groom_targeted: false, target_type: "pick",
       };
@@ -255,7 +253,7 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
       return {
         id, card_type: "groom_special", title: CARD_TITLES.groom_special,
         content: item.text,
-        instruction: `Mladozenja pije ${gutljaj(mult)} svejedno. Preskoci = ${gutljaj(skipPenalty)}!`,
+        instruction: `Groom drinks ${gutljaj(mult)} regardless. Skip = ${gutljaj(skipPenalty)}!`,
         drink_penalty: mult, drink_penalty_skip: skipPenalty,
         is_groom_targeted: true, target_type: "groom", sub_type: item.sub_type,
       };
@@ -263,8 +261,8 @@ function buildCard(cardType: CardType, mult: number, ctx: DrawContext): GameCard
     case "boss_fight": {
       return {
         id, card_type: "boss_fight", title: CARD_TITLES.boss_fight,
-        content: "Mladozenja bira protivnika! Kamen-papir-skare. Gubitnik pije 3 gutljaja.",
-        instruction: "Odigrajte uzivo, host pritisne DALJE kad zavrsi.",
+        content: "Two random fighters enter the arena. Loser drinks 3 sips.",
+        instruction: "Watch the battle play out.",
         drink_penalty: 3, drink_penalty_skip: 0,
         is_groom_targeted: false, target_type: "passive",
       };
@@ -300,7 +298,7 @@ export function applyGroomTax(penalties: DrinkPenalty[], players: PlayerRow[], r
         player_name: groom.name,
         sips: tax,
         shots: 0,
-        reason: "POREZ MLADOZENJE!",
+        reason: "GROOM TAX!",
       },
     ];
   }
@@ -317,7 +315,7 @@ export function applyMates(penalties: DrinkPenalty[], players: PlayerRow[]): Dri
         player_name: mateName,
         sips: pen.sips,
         shots: 0,
-        reason: `PAJDAS sa ${pen.player_name}!`,
+        reason: `MATE of ${pen.player_name}!`,
       });
     }
   }
@@ -326,10 +324,10 @@ export function applyMates(penalties: DrinkPenalty[], players: PlayerRow[]): Dri
 
 export function getDrunkComment(totalSips: number, totalShots: number): string {
   const total = totalSips + totalShots * 3;
-  if (total === 0) return "Trijezan ko sudac";
-  if (total < 5) return "Tek poceo...";
-  if (total < 10) return "Zagrijava se";
-  if (total < 20) return "Pijan, potvrdjeno";
-  if (total < 30) return "GOTOV";
-  return "TOTALNO UNISTEN";
+  if (total === 0) return "Sober as a judge";
+  if (total < 5) return "Just getting started...";
+  if (total < 10) return "Warming up";
+  if (total < 20) return "Drunk, confirmed";
+  if (total < 30) return "WRECKED";
+  return "TOTALLY DESTROYED";
 }

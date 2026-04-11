@@ -44,7 +44,7 @@ function computeAchievements(players: CreditsPlayer[]): Achievement[] {
   if (totalDrinkScore(mostDrunk) > 0) {
     out.push({
       emoji: "🍺",
-      title: "NAJVECI PIJANAC",
+      title: "DRUNKEST OF THE NIGHT",
       subtitle: `${formatDrinks(mostDrunk.total_sips, mostDrunk.total_shots)} — ${getDrunkComment(mostDrunk.total_sips, mostDrunk.total_shots)}`,
       player: mostDrunk,
       color: "#DC3232",
@@ -55,10 +55,10 @@ function computeAchievements(players: CreditsPlayer[]): Achievement[] {
   if (leastDrunk && leastDrunk.id !== mostDrunk.id) {
     out.push({
       emoji: "🌵",
-      title: "TRIJEZAN KO SUDAC",
+      title: "STONE COLD SOBER",
       subtitle: totalDrinkScore(leastDrunk) === 0
-        ? "Nije popio NIJEDNU. Sramota za naciju."
-        : `Samo ${formatDrinks(leastDrunk.total_sips, leastDrunk.total_shots)}. Slabic.`,
+        ? "Didn't drink a SINGLE one. National embarrassment."
+        : `Only ${formatDrinks(leastDrunk.total_sips, leastDrunk.total_shots)}. Lightweight.`,
       player: leastDrunk,
       color: "#28A050",
     });
@@ -68,10 +68,10 @@ function computeAchievements(players: CreditsPlayer[]): Achievement[] {
   if (groom) {
     out.push({
       emoji: "👑",
-      title: "MLADOZENJA NA KOLJENIMA",
+      title: "GROOM ON HIS KNEES",
       subtitle: totalDrinkScore(groom) > 20
-        ? "Sutra ce zaliti SVE ovo. JOS VECERAS NEK ZALI."
-        : "Cestitamo na zadnjoj noci slobode, druze.",
+        ? "He'll regret EVERY drop tomorrow. Tonight, let him regret it now."
+        : "Congrats on the last night of freedom, brother.",
       player: groom,
       color: "#FFC828",
     });
@@ -81,8 +81,8 @@ function computeAchievements(players: CreditsPlayer[]): Achievement[] {
   if (kum) {
     out.push({
       emoji: "🤝",
-      title: "KUM I VJERNI PRATILAC",
-      subtitle: "Drzao je mladozenju kad je posrnuo. Pravi covjek.",
+      title: "BEST MAN, LOYAL TO THE END",
+      subtitle: "Held the groom up when he fell. A real one.",
       player: kum,
       color: "#3264B4",
     });
@@ -93,8 +93,8 @@ function computeAchievements(players: CreditsPlayer[]): Achievement[] {
   if (topMater && (topMater.mates?.length || 0) > 0) {
     out.push({
       emoji: "💍",
-      title: "DRUSTVENA ZIVOTINJA",
-      subtitle: `Sklopio ${topMater.mates.length} pajdas-savez. Svi su zajedno pili. Svi su zajedno patili.`,
+      title: "SOCIAL ANIMAL",
+      subtitle: `Made ${topMater.mates.length} mate-pacts. They drank together. They suffered together.`,
       player: topMater,
       color: "#B43C78",
     });
@@ -105,8 +105,8 @@ function computeAchievements(players: CreditsPlayer[]): Achievement[] {
   if (topChicken && (topChicken.chickened_out_count || 0) >= 2) {
     out.push({
       emoji: "🐔",
-      title: "KUKAVICA GODINE",
-      subtitle: `Pobjegao od ${topChicken.chickened_out_count} izazova. SRAMOTA OBITELJI.`,
+      title: "CHICKEN OF THE YEAR",
+      subtitle: `Bottled out of ${topChicken.chickened_out_count} dares. SHAME ON THE FAMILY.`,
       player: topChicken,
       color: "#FF8814",
     });
@@ -116,8 +116,8 @@ function computeAchievements(players: CreditsPlayer[]): Achievement[] {
   if (beast && beast.id !== mostDrunk.id) {
     out.push({
       emoji: "🐉",
-      title: "ZMAJ PIJANCA",
-      subtitle: "Presao je sve granice ljudskog razuma. Mit. Legenda.",
+      title: "DRINK DRAGON",
+      subtitle: "Crossed every line of human reason. A myth. A legend.",
       player: beast,
       color: "#7828A0",
     });
@@ -303,7 +303,7 @@ export function CreditsScreen({ players, actions }: CreditsScreenProps) {
   if (phase === "celebration") {
     return (
       <CelebrationPhase
-        groomName={groom?.name || "MLADOZENJA"}
+        groomName={groom?.name || "GROOM"}
         groomFighterId={groom?.fighter_id || "matija"}
         onSkip={() => setPhase("shots")}
       />
@@ -383,7 +383,7 @@ function CelebrationPhase({
             animation: "title-pulse 0.6s ease-in-out infinite alternate 0.3s",
           }}
         >
-          SE ZENI!!!
+          IS GETTING MARRIED!!!
         </h2>
 
         <img
@@ -406,7 +406,7 @@ function CelebrationPhase({
           ✦ ✦ ✦
         </p>
 
-        <p className="text-zinc-500 text-sm mt-12 animate-pulse">[ klikni za dalje ]</p>
+        <p className="text-zinc-500 text-sm mt-12 animate-pulse">[ click to continue ]</p>
       </div>
 
       <style jsx>{`
@@ -464,7 +464,7 @@ function ShotsPhase({ onContinue }: { onContinue: () => void }) {
           className="text-3xl md:text-5xl text-black font-bold mb-6 tracking-widest"
           style={{ animation: "shake-text 0.3s ease-in-out infinite" }}
         >
-          🚨 PAZNJA 🚨
+          🚨 ATTENTION 🚨
         </p>
         <h1
           className="text-7xl md:text-[12rem] font-black text-white tracking-widest leading-none"
@@ -482,13 +482,13 @@ function ShotsPhase({ onContinue }: { onContinue: () => void }) {
             animation: "shots-pulse 0.4s ease-in-out infinite alternate 0.2s",
           }}
         >
-          ZA SVE!!!
+          FOR EVERYONE!!!
         </h2>
         <p className="text-2xl md:text-4xl text-black font-bold mt-8 tracking-wider">
-          JEDAN SHOT. ODMAH. NEMA RASPRAVE.
+          ONE SHOT. RIGHT NOW. NO ARGUING.
         </p>
         <p className="text-xl md:text-2xl text-black/80 mt-3">
-          Mladozenja casti. Kum sluzi. Svi piju.
+          Groom buys. Best man pours. Everyone drinks.
         </p>
 
         {!counted ? (
@@ -497,7 +497,7 @@ function ShotsPhase({ onContinue }: { onContinue: () => void }) {
             className="mt-12 bg-black text-[#FFC828] font-black text-3xl md:text-5xl py-6 px-12 rounded-2xl border-4 border-black hover:scale-105 active:scale-95 transition-transform"
             style={{ boxShadow: "0 8px 0 rgba(0,0,0,0.4), 0 0 60px rgba(255,200,40,0.6)" }}
           >
-            🥃 SPREMNI? KLIKNI 🥃
+            🥃 READY? TAP IT 🥃
           </button>
         ) : (
           <div className="mt-12">
@@ -604,9 +604,9 @@ function CreditsRoll({ players, actions }: { players: CreditsPlayer[]; actions?:
       <div className="relative z-10 text-center py-6 border-b-2 border-[#FFC828]/30 bg-black/40">
         <h1 className="text-4xl md:text-6xl font-bold text-[#FFC828] tracking-widest"
             style={{ textShadow: "0 0 20px #FFC828" }}>
-          JUTRO POSLIJE
+          THE MORNING AFTER
         </h1>
-        <p className="text-zinc-400 text-sm mt-2">CREDITI · MATIJAMON BACHELOR SPECIAL</p>
+        <p className="text-zinc-400 text-sm mt-2">CREDITS · MATIJAMON BACHELOR SPECIAL</p>
       </div>
 
       <div
@@ -617,19 +617,19 @@ function CreditsRoll({ players, actions }: { players: CreditsPlayer[]; actions?:
       >
         <div className="max-w-3xl mx-auto px-6 py-12 space-y-16">
           <section className="text-center">
-            <p className="text-zinc-500 text-xs uppercase tracking-widest">UKUPNO POPIJENO</p>
+            <p className="text-zinc-500 text-xs uppercase tracking-widest">TOTAL CONSUMED</p>
             <p className="text-5xl md:text-8xl text-[#FFC828] font-bold mt-2"
                style={{ textShadow: "0 0 30px rgba(255,200,40,0.6)" }}>
               {formatDrinks(totalSips, totalShots)}
             </p>
             <p className="text-zinc-400 text-sm mt-3">
-              raspodjeljeno na {players.length} {players.length === 1 ? "dusu" : "dusa"}
+              spread across {players.length} {players.length === 1 ? "soul" : "souls"}
             </p>
           </section>
 
           {ranked.length >= 2 && (
             <section className="text-center">
-              <p className="text-zinc-500 text-xs uppercase tracking-widest mb-6">PODIUM SRAMOTE</p>
+              <p className="text-zinc-500 text-xs uppercase tracking-widest mb-6">PODIUM OF SHAME</p>
               <div className="flex items-end justify-center gap-4">
                 {[ranked[1], ranked[0], ranked[2]].filter(Boolean).map((p, i) => {
                   const place = i === 1 ? 1 : i === 0 ? 2 : 3;
@@ -670,7 +670,7 @@ function CreditsRoll({ players, actions }: { players: CreditsPlayer[]; actions?:
           {achievements.length > 0 && (
             <section>
               <p className="text-zinc-500 text-xs uppercase tracking-widest text-center mb-6">
-                NAGRADE I PRIZNANJA
+                AWARDS & HONORS
               </p>
               <div className="space-y-6">
                 {achievements.map((a, i) => (
@@ -706,7 +706,7 @@ function CreditsRoll({ players, actions }: { players: CreditsPlayer[]; actions?:
 
           <section>
             <p className="text-zinc-500 text-xs uppercase tracking-widest text-center mb-6">
-              KONACAN POREDAK
+              FINAL RANKINGS
             </p>
             <div className="space-y-2">
               {ranked.map((p, i) => (
@@ -739,14 +739,14 @@ function CreditsRoll({ players, actions }: { players: CreditsPlayer[]; actions?:
           </section>
 
           <section className="text-center pt-12 pb-8">
-            <p className="text-zinc-600 text-xs uppercase tracking-widest">PRODUCIRAO</p>
-            <p className="text-2xl text-[#FFC828] mt-2">PAJO & DRUSTVO</p>
-            <p className="text-zinc-600 text-xs mt-8 uppercase tracking-widest">REZIJA</p>
-            <p className="text-2xl text-[#FFC828] mt-2">ALKOHOL</p>
-            <p className="text-zinc-600 text-xs mt-8 uppercase tracking-widest">U GLAVNOJ ULOZI</p>
+            <p className="text-zinc-600 text-xs uppercase tracking-widest">PRODUCED BY</p>
+            <p className="text-2xl text-[#FFC828] mt-2">PAJO & THE BOYS</p>
+            <p className="text-zinc-600 text-xs mt-8 uppercase tracking-widest">DIRECTED BY</p>
+            <p className="text-2xl text-[#FFC828] mt-2">ALCOHOL</p>
+            <p className="text-zinc-600 text-xs mt-8 uppercase tracking-widest">STARRING</p>
             <p className="text-3xl text-[#FFC828] mt-2 font-bold">MATIJA</p>
-            <p className="text-zinc-700 text-xs mt-12">Sva slicnost s pijancima je SLUCAJNA.</p>
-            <p className="text-[#FFC828] text-xl mt-12">★ ZIVJELI ★</p>
+            <p className="text-zinc-700 text-xs mt-12">Any resemblance to actual drunks is PURELY COINCIDENTAL.</p>
+            <p className="text-[#FFC828] text-xl mt-12">★ CHEERS ★</p>
           </section>
         </div>
       </div>

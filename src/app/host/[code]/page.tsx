@@ -414,7 +414,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
         const winnerName = curBattle.state.winnerId === curBattle.p1Player.fighter_id ? curBattle.p1Player.name : curBattle.p2Player.name;
         const loserName = curBattle.state.winnerId === curBattle.p1Player.fighter_id ? curBattle.p2Player.name : curBattle.p1Player.name;
         const koPenalties: DrinkPenalty[] = [{
-          player_name: loserName, sips: 3, shots: 0, reason: `Gubitnik MATIJAMON borbe pije 3!`,
+          player_name: loserName, sips: 3, shots: 0, reason: `Loser of MATIJAMON battle drinks 3!`,
         }];
         const withMates = applyMates(koPenalties, curPlayers);
         const withTax = applyGroomTax(withMates, curPlayers, curState.current_round);
@@ -545,7 +545,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   const restartGame = () => {
     setConfirmDialog({
-      message: "Sigurno restartati igru? Svi gutljaji se brisu, runda 1 ispocetka.",
+      message: "Restart the game? All drinks reset to zero, round 1 from scratch.",
       onYes: async () => {
         await resetRoomToLobby(code);
         if (audioRef.current) audioRef.current.pause();
@@ -558,7 +558,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   const endGameNow = () => {
     setConfirmDialog({
-      message: "Sigurno zavrsiti igru? Idemo na rezultate.",
+      message: "End the game now? Jump straight to the results.",
       onYes: async () => {
         if (state) await updateRoomState(code, { ...state, phase: "ended" });
         playRandomTrack(["We Are The Champions"]);
@@ -569,7 +569,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   const exitToHome = () => {
     setConfirmDialog({
-      message: "Sigurno izaci? Soba se brise i svi se izbacuju.",
+      message: "Quit? The room gets deleted and everyone is kicked.",
       onYes: async () => {
         if (audioRef.current) audioRef.current.pause();
         await deleteRoom(code);
@@ -580,7 +580,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   const handleKickPlayer = (player: PlayerRow) => {
     setConfirmDialog({
-      message: `Izbaciti ${player.name}?`,
+      message: `Kick ${player.name}?`,
       onYes: async () => {
         await kickPlayer(player.id);
         setConfirmDialog(null);
@@ -591,7 +591,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
 
   const backToLobby = () => {
     setConfirmDialog({
-      message: "Vratiti se u predvorje? Igraci ostaju ali se gutljaji brisu.",
+      message: "Back to lobby? Players stay but all drinks reset.",
       onYes: async () => {
         await resetRoomToLobby(code);
         if (audioRef.current) audioRef.current.pause();
@@ -677,7 +677,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             player_name: player.name,
             sips: card.drink_penalty_skip,
             shots: 0,
-            reason: "KUKAVICA!",
+            reason: "CHICKEN!",
           }];
           await applyAndAdvanceRef.current(penalties);
         } else {
@@ -687,7 +687,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
               player_name: player.name,
               sips: card.drink_penalty,
               shots: 0,
-              reason: "Mladozenja pije svejedno!",
+              reason: "Groom drinks anyway!",
             }];
             await applyAndAdvanceRef.current(penalties);
           } else {
@@ -706,7 +706,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             player_name: targetName,
             sips: card.drink_penalty,
             shots: 0,
-            reason: `${targetName} pije ${card.drink_penalty}!`,
+            reason: `${targetName} drinks ${card.drink_penalty}!`,
           }];
           await applyAndAdvanceRef.current(penalties);
         } else if (card.card_type === "mate" && targetName && targetId) {
@@ -759,7 +759,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             if (aCount === bCount) losers = ps;
             else if (aCount < bCount) losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "a");
             else losers = ps.filter(p => allActions.find((a: { player_id: string; payload: { choice?: string } }) => a.player_id === p.id)?.payload.choice === "b");
-            const penalties = losers.map(p => ({ player_name: p.name, sips: card.drink_penalty, shots: 0, reason: "MANJINA PIJE!" }));
+            const penalties = losers.map(p => ({ player_name: p.name, sips: card.drink_penalty, shots: 0, reason: "MINORITY DRINKS!" }));
             await applyAndAdvanceRef.current(penalties);
           } catch (err) {
             console.error("Vote tally failed:", err);
@@ -802,7 +802,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             if (Object.keys(tally).length > 0) {
               const max = Math.max(...Object.values(tally));
               const winners = Object.entries(tally).filter(([, c]) => c === max).map(([n]) => n);
-              const penalties = winners.map(name => ({ player_name: name, sips: card.drink_penalty, shots: 0, reason: `${max} glasova!` }));
+              const penalties = winners.map(name => ({ player_name: name, sips: card.drink_penalty, shots: 0, reason: `${max} votes!` }));
               await applyAndAdvanceRef.current(penalties);
             } else {
               await advanceTurnRef.current();
@@ -884,7 +884,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
   let phaseContent: React.ReactNode = null;
 
   if (!state) {
-    phaseContent = <div className="min-h-screen flex items-center justify-center bg-[#0c0c14] text-white">Ucitavanje...</div>;
+    phaseContent = <div className="min-h-screen flex items-center justify-center bg-[#0c0c14] text-white">Loading...</div>;
   } else if (state.phase === "lobby") {
     phaseContent = (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0c14] text-white p-8">
@@ -896,23 +896,23 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             <QRCodeSVG value={joinUrl} size={280} level="H" />
           </div>
           <div className="text-center md:text-left">
-            <p className="text-zinc-400 text-sm mb-2">SKENIRAJ S MOBITELOM</p>
-            <p className="text-zinc-400 text-sm mb-4">ili udji na:</p>
+            <p className="text-zinc-400 text-sm mb-2">SCAN WITH YOUR PHONE</p>
+            <p className="text-zinc-400 text-sm mb-4">or join at:</p>
             <p className="text-xl text-[#FFC828] mb-2 break-all">{joinUrl}</p>
-            <p className="text-zinc-500 text-xs mt-4 mb-2">KOD SOBE</p>
+            <p className="text-zinc-500 text-xs mt-4 mb-2">ROOM CODE</p>
             <p className="text-7xl md:text-9xl font-bold text-[#FFC828] tracking-[0.2em]">{code}</p>
           </div>
         </div>
 
         <div className="mt-12 w-full max-w-4xl">
-          <p className="text-center text-zinc-400 mb-4">IGRACI: {players.length} / 15</p>
+          <p className="text-center text-zinc-400 mb-4">PLAYERS: {players.length} / 15</p>
           <div className="flex flex-wrap gap-4 justify-center">
             {players.map((p) => (
               <div key={p.id} className="bg-[#1a1a28] border border-[#FFC828]/30 rounded-lg p-3 flex flex-col items-center w-28">
                 <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-16 h-16 pixel-art" />
                 <p className="text-xs mt-1 text-white truncate w-full text-center">{p.name}</p>
-                {p.is_groom && <p className="text-xs text-[#FFC828]">MLADOZENJA</p>}
-                {p.is_kum && <p className="text-xs text-[#DCA014]">KUM</p>}
+                {p.is_groom && <p className="text-xs text-[#FFC828]">GROOM</p>}
+                {p.is_kum && <p className="text-xs text-[#DCA014]">BEST MAN</p>}
               </div>
             ))}
           </div>
@@ -921,7 +921,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
         {players.length >= 2 && (
           <button onClick={startGame}
             className="mt-8 bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-lg hover:bg-[#FFD850] active:scale-95 transition shadow-2xl animate-pulse-glow">
-            POKRENI IGRU
+            START GAME
           </button>
         )}
 
@@ -929,18 +929,18 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
         <div className="mt-8 flex gap-3">
           <button onClick={() => setShowKickMenu(s => !s)}
             className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm px-4 py-2 rounded">
-            👥 Igraci ({players.length})
+            👥 Players ({players.length})
           </button>
           <button onClick={exitToHome}
             className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm px-4 py-2 rounded">
-            ❌ Izlaz
+            ❌ Quit
           </button>
         </div>
 
         {/* Kick menu in lobby */}
         {showKickMenu && players.length > 0 && (
           <div className="mt-3 p-3 bg-[#1a1a28] border border-zinc-700 rounded max-w-sm w-full">
-            <p className="text-xs text-zinc-500 mb-2 text-center">KLIKNI ZA IZBACITI</p>
+            <p className="text-xs text-zinc-500 mb-2 text-center">CLICK TO KICK</p>
             {players.map(p => (
               <button key={p.id} onClick={() => handleKickPlayer(p)}
                 className="w-full flex items-center gap-2 text-sm py-1.5 px-2 hover:bg-zinc-800 rounded">
@@ -959,9 +959,9 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
               <p className="text-xl text-white mb-6">{confirmDialog.message}</p>
               <div className="flex gap-4 justify-center">
                 <button onClick={confirmDialog.onYes}
-                  className="bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-3 px-8 rounded-lg">DA</button>
+                  className="bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-3 px-8 rounded-lg">YES</button>
                 <button onClick={() => setConfirmDialog(null)}
-                  className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-lg">NE</button>
+                  className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-lg">NO</button>
               </div>
             </div>
           </div>
@@ -979,18 +979,18 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
         {/* TOP BAR */}
         <div className="px-6 py-3 bg-black/60 flex justify-between items-center border-b border-[#FFC828]/30">
           <div className="text-base">
-            <span className="text-zinc-400">Runda </span>
+            <span className="text-zinc-400">Round </span>
             <span className="text-[#FFC828] font-bold">{state.current_round}</span>
             <span className="text-zinc-400">: </span>
             <span className="text-[#FFC828]">{ROUND_NAMES[state.current_round]}</span>
           </div>
           <div className="text-base text-zinc-400">
-            Karta <span className="text-white">{state.cards_in_round + 1}</span>/{CARDS_PER_ROUND}
+            Card <span className="text-white">{state.cards_in_round + 1}</span>/{CARDS_PER_ROUND}
           </div>
           <button
             onClick={() => setShowAdminPanel(p => !p)}
             className="text-sm text-zinc-500 hover:text-white px-3 py-1 border border-zinc-700 rounded">
-            {showAdminPanel ? "Sakrij" : "Admin"}
+            {showAdminPanel ? "Hide" : "Admin"}
           </button>
         </div>
 
@@ -999,7 +999,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
           <div className="px-6 py-4 bg-gradient-to-r from-transparent via-[#FFC828]/10 to-transparent flex items-center justify-center gap-4">
             <img src={spriteUrl(currentPlayer.fighter_id)} alt={currentPlayer.name} className="w-16 h-16 pixel-art" />
             <div>
-              <p className="text-xs text-zinc-500 uppercase">Na potezu</p>
+              <p className="text-xs text-zinc-500 uppercase">Up next</p>
               <p className="text-3xl text-[#FFC828] font-bold">
                 {currentPlayer.is_groom && "★ "}{currentPlayer.is_kum && "+ "}{currentPlayer.name}
               </p>
@@ -1014,10 +1014,10 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
         <div className="flex-1 flex flex-col items-center justify-center px-8 py-4">
           {state.card_phase === "draw" && currentPlayer && (
             <div className="text-center">
-              <p className="text-2xl text-zinc-400 mb-6">Cekamo da {currentPlayer.name} izvuce kartu...</p>
+              <p className="text-2xl text-zinc-400 mb-6">Waiting for {currentPlayer.name} to draw a card...</p>
               <button onClick={drawNewCard}
                 className="bg-[#FFC828] text-black font-bold py-6 px-12 text-3xl rounded-xl hover:bg-[#FFD850] transition animate-pulse-glow">
-                🎴 VUCI KARTU
+                🎴 DRAW CARD
               </button>
             </div>
           )}
@@ -1045,7 +1045,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
                 <div className="text-center mt-4">
                   <button onClick={finishBattle}
                     className="bg-[#FFC828] text-black font-bold py-4 px-12 text-2xl rounded-xl hover:bg-[#FFD850] active:scale-95">
-                    KRAJ BORBE
+                    END BATTLE
                   </button>
                 </div>
               )}
@@ -1060,58 +1060,58 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
         {showAdminPanel && (
           <div className="fixed top-20 right-4 bg-black/90 border-2 border-[#FFC828]/50 rounded-lg p-4 w-96 z-40 max-h-[calc(100vh-100px)] overflow-y-auto shadow-2xl">
             <p className="text-base text-[#FFC828] mb-3 font-bold flex items-center justify-between">
-              ADMIN <span className="text-xs text-zinc-500">SOBA: {code}</span>
+              ADMIN <span className="text-xs text-zinc-500">ROOM: {code}</span>
             </p>
 
             {/* Game flow controls */}
-            <p className="text-xs text-zinc-500 mb-2 mt-2 tracking-wider">TIJEK IGRE</p>
+            <p className="text-xs text-zinc-500 mb-2 mt-2 tracking-wider">GAME FLOW</p>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={drawNewCard}
                 disabled={state.card_phase !== "draw"}
                 className="bg-[#28A050] hover:bg-[#3CB464] text-white text-sm py-2.5 rounded disabled:opacity-30 disabled:cursor-not-allowed">
-                🎴 Vuci kartu
+                🎴 Draw card
               </button>
               <button onClick={skipCard}
                 className="bg-[#28508C] hover:bg-[#3264B4] text-white text-sm py-2.5 rounded">
-                ⏭ Preskoci
+                ⏭ Skip
               </button>
             </div>
 
             {/* Game state controls */}
-            <p className="text-xs text-zinc-500 mb-2 mt-4 tracking-wider">UPRAVLJANJE</p>
+            <p className="text-xs text-zinc-500 mb-2 mt-4 tracking-wider">CONTROL</p>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setShowKickMenu(s => !s)}
                 className="bg-[#7828A0] hover:bg-[#9438C0] text-white text-sm py-2.5 rounded">
-                👥 Igraci ({players.length})
+                👥 Players ({players.length})
               </button>
               <button onClick={backToLobby}
                 className="bg-[#B46414] hover:bg-[#D47828] text-white text-sm py-2.5 rounded">
-                🏠 Predvorje
+                🏠 Lobby
               </button>
               <button onClick={restartGame}
                 className="bg-[#B46414] hover:bg-[#D47828] text-white text-sm py-2.5 rounded">
-                🔄 Restartaj
+                🔄 Restart
               </button>
               <button onClick={endGameNow}
                 className="bg-[#DC3232] hover:bg-[#FF4848] text-white text-sm py-2.5 rounded">
-                🏁 Zavrsi
+                🏁 End game
               </button>
               <button onClick={exitToHome}
                 className="bg-zinc-700 hover:bg-zinc-600 text-white text-sm py-2.5 rounded col-span-2">
-                ❌ Izlaz iz igre
+                ❌ Quit
               </button>
             </div>
 
             {/* Player list / kick menu */}
             {showKickMenu && (
               <div className="mt-3 p-2 bg-zinc-900 rounded border border-zinc-700">
-                <p className="text-xs text-zinc-500 mb-1">KLIKNI ZA IZBACITI</p>
+                <p className="text-xs text-zinc-500 mb-1">CLICK TO KICK</p>
                 {players.map(p => (
                   <button key={p.id} onClick={() => handleKickPlayer(p)}
                     className="w-full flex items-center gap-2 text-sm py-1.5 px-2 hover:bg-zinc-800 rounded">
                     <img src={spriteUrl(p.fighter_id)} alt={p.name} className="w-6 h-6 pixel-art" />
                     <span className="text-white truncate flex-1 text-left">{p.is_groom && "★ "}{p.name}</span>
-                    <span className="text-zinc-500 text-xs">{p.total_sips}g</span>
+                    <span className="text-zinc-500 text-xs">{p.total_sips}s</span>
                     <span className="text-red-500 text-base">×</span>
                   </button>
                 ))}
@@ -1119,17 +1119,17 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             )}
 
             {/* Music controls */}
-            <p className="text-xs text-zinc-500 mb-2 mt-4 tracking-wider">MUZIKA</p>
+            <p className="text-xs text-zinc-500 mb-2 mt-4 tracking-wider">MUSIC</p>
             <div className="bg-black/50 rounded-lg px-3 py-2 mb-2 h-9 overflow-hidden border border-zinc-800 flex items-center">
               {currentTrack
                 ? <ScrollingText text={`♪ ${currentTrack}`} />
-                : <p className="text-sm text-zinc-600">— nema pjesme —</p>}
+                : <p className="text-sm text-zinc-600">— no track —</p>}
             </div>
             <div className="flex gap-1.5 mb-2">
-              <button onClick={prevTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title="Prosla">⏮</button>
-              <button onClick={togglePause} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title={musicPaused ? "Reproduciraj" : "Pauziraj"}>{musicPaused ? "▶" : "⏸"}</button>
-              <button onClick={nextTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title="Sljedeca">⏭</button>
-              <button onClick={toggleMute} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title={musicMuted ? "Ukljuci zvuk" : "Iskljuci zvuk"}>{musicMuted ? "🔇" : "🔊"}</button>
+              <button onClick={prevTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title="Previous">⏮</button>
+              <button onClick={togglePause} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title={musicPaused ? "Play" : "Pause"}>{musicPaused ? "▶" : "⏸"}</button>
+              <button onClick={nextTrack} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title="Next">⏭</button>
+              <button onClick={toggleMute} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white text-base py-2 rounded" title={musicMuted ? "Unmute" : "Mute"}>{musicMuted ? "🔇" : "🔊"}</button>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-zinc-500 w-10 text-right">{Math.round(musicVolume * 100)}%</span>
@@ -1141,7 +1141,7 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
                 }}
                 className="flex-1 accent-[#FFC828]" />
             </div>
-            <p className="text-xs text-zinc-600 mt-2 text-center">{tracks.length} pjesama u listi</p>
+            <p className="text-xs text-zinc-600 mt-2 text-center">{tracks.length} tracks in playlist</p>
           </div>
         )}
 
@@ -1153,11 +1153,11 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
               <div className="flex gap-4 justify-center">
                 <button onClick={confirmDialog.onYes}
                   className="bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-3 px-8 rounded-lg">
-                  DA
+                  YES
                 </button>
                 <button onClick={() => setConfirmDialog(null)}
                   className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-lg">
-                  NE
+                  NO
                 </button>
               </div>
             </div>
@@ -1181,15 +1181,15 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
             <>
               <button onClick={newGameAction}
                 className="bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-3 px-6 rounded-lg">
-                🔄 NOVA IGRA
+                🔄 NEW GAME
               </button>
               <button onClick={newGameAction}
                 className="bg-[#28508C] hover:bg-[#3264B4] text-white font-bold py-3 px-6 rounded-lg">
-                🏠 U PREDVORJE
+                🏠 BACK TO LOBBY
               </button>
               <button onClick={exitToHome}
                 className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg">
-                ❌ IZLAZ
+                ❌ QUIT
               </button>
             </>
           }
@@ -1200,9 +1200,9 @@ export default function HostPage({ params }: { params: Promise<{ code: string }>
               <p className="text-xl text-white mb-6">{confirmDialog.message}</p>
               <div className="flex gap-4 justify-center">
                 <button onClick={confirmDialog.onYes}
-                  className="bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-3 px-8 rounded-lg">DA</button>
+                  className="bg-[#DC3232] hover:bg-[#FF4848] text-white font-bold py-3 px-8 rounded-lg">YES</button>
                 <button onClick={() => setConfirmDialog(null)}
-                  className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-lg">NE</button>
+                  className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-lg">NO</button>
               </div>
             </div>
           </div>
@@ -1283,7 +1283,7 @@ function CardDisplay({ card, voteTally, actedCount, totalPlayers }: {
 
         {card.content_b && (
           <>
-            <p className="text-center text-xl my-4 opacity-70">— ILI —</p>
+            <p className="text-center text-xl my-4 opacity-70">— OR —</p>
             <p className="text-2xl md:text-4xl text-center leading-relaxed py-8">{card.content_b}</p>
           </>
         )}
@@ -1293,7 +1293,7 @@ function CardDisplay({ card, voteTally, actedCount, totalPlayers }: {
         )}
 
         {card.is_groom_targeted && (
-          <p className="text-center text-2xl mt-4 text-[#FFC828] animate-pulse">★ MLADOZENJA ★</p>
+          <p className="text-center text-2xl mt-4 text-[#FFC828] animate-pulse">★ GROOM ★</p>
         )}
       </div>
 
@@ -1301,10 +1301,10 @@ function CardDisplay({ card, voteTally, actedCount, totalPlayers }: {
       {(card.card_type === "wyr" || card.card_type === "hot_take") && Object.keys(voteTally).length > 0 && (
         <div className="mt-6 flex justify-center gap-8 text-2xl">
           <div className="text-[#28A050]">
-            {card.card_type === "hot_take" ? "ZA" : "A"}: {voteTally.a || 0}
+            {card.card_type === "hot_take" ? "AGREE" : "A"}: {voteTally.a || 0}
           </div>
           <div className="text-[#DC3232]">
-            {card.card_type === "hot_take" ? "PROTIV" : "B"}: {voteTally.b || 0}
+            {card.card_type === "hot_take" ? "DISAGREE" : "B"}: {voteTally.b || 0}
           </div>
         </div>
       )}
@@ -1327,7 +1327,7 @@ function CardDisplay({ card, voteTally, actedCount, totalPlayers }: {
       {/* Action progress for any voting card */}
       {(card.card_type === "nhie" || card.card_type === "wyr" || card.card_type === "hot_take" || card.card_type === "most_likely") && (
         <p className="text-center text-zinc-400 mt-4 text-sm">
-          {actedCount} / {totalPlayers} glasovalo
+          {actedCount} / {totalPlayers} voted
         </p>
       )}
     </div>
@@ -1361,7 +1361,7 @@ function PlayerHUD({ players, currentPlayerName, actedPlayerIds }: {
               <p className={`text-[8px] mt-0.5 ${isCurrent ? "text-[#FFC828]" : "text-white"}`}>
                 {p.is_groom && "★"}{p.name.slice(0, 7)}
               </p>
-              <p className="text-[8px] text-[#FFC828]">{p.total_sips}g{p.total_shots > 0 && ` ${p.total_shots}sh`}</p>
+              <p className="text-[8px] text-[#FFC828]">{p.total_sips}s{p.total_shots > 0 && ` ${p.total_shots}sh`}</p>
             </div>
           );
         })}

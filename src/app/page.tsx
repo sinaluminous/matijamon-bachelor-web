@@ -21,7 +21,7 @@ export default function Home() {
       }
       router.push(`/host/${code}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Greska");
+      setError(e instanceof Error ? e.message : "Error");
       setBusy(false);
     }
   }
@@ -29,7 +29,7 @@ export default function Home() {
   async function handleJoin() {
     const code = joinCode.toUpperCase().trim();
     if (code.length !== 4) {
-      setError("Kod mora imati 4 slova");
+      setError("Code must be 4 letters");
       return;
     }
     setBusy(true);
@@ -37,13 +37,13 @@ export default function Home() {
     try {
       const room = await getRoom(code);
       if (!room) {
-        setError("Soba ne postoji");
+        setError("Room not found");
         setBusy(false);
         return;
       }
       router.push(`/play/${code}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Greska");
+      setError(e instanceof Error ? e.message : "Error");
       setBusy(false);
     }
   }
@@ -58,7 +58,7 @@ export default function Home() {
           SPECIAL
         </h2>
         <p className="text-sm md:text-base text-zinc-400 mt-4">
-          Igra za pijenje • Matijamon • 2-15 igraca
+          Drinking game • Matijamon • 2-15 players
         </p>
       </div>
 
@@ -69,33 +69,33 @@ export default function Home() {
             disabled={busy}
             className="bg-[#FFC828] text-black font-bold py-6 px-8 rounded-lg text-xl hover:bg-[#FFD850] active:scale-95 transition disabled:opacity-50 shadow-lg"
           >
-            {busy ? "..." : "ONLINE IGRA"}
+            {busy ? "..." : "HOST GAME"}
           </button>
           <button
             onClick={() => setMode("join")}
             disabled={busy}
             className="bg-[#28508C] hover:bg-[#3264B4] text-white font-bold py-6 px-8 rounded-lg text-xl active:scale-95 transition disabled:opacity-50 shadow-lg"
           >
-            PRIDRUZI SE
+            JOIN ROOM
           </button>
           <button
             onClick={() => router.push("/local")}
             disabled={busy}
             className="bg-[#28A050] hover:bg-[#3CB464] text-white font-bold py-6 px-8 rounded-lg text-xl active:scale-95 transition disabled:opacity-50 shadow-lg"
           >
-            LOKALNO (1 EKRAN)
+            LOCAL (1 SCREEN)
           </button>
           <div className="text-xs text-zinc-500 text-center mt-4 leading-relaxed space-y-1">
-            <p><span className="text-[#FFC828]">ONLINE IGRA</span> — TV + telefoni</p>
-            <p><span className="text-[#28508C]">PRIDRUZI SE</span> — telefon u sobu</p>
-            <p><span className="text-[#28A050]">LOKALNO</span> — 1 uredjaj, bez interneta</p>
+            <p><span className="text-[#FFC828]">HOST GAME</span> — TV + phones</p>
+            <p><span className="text-[#28508C]">JOIN ROOM</span> — phone into a room</p>
+            <p><span className="text-[#28A050]">LOCAL</span> — 1 device, no internet</p>
           </div>
         </div>
       )}
 
       {mode === "join" && (
         <div className="flex flex-col gap-4 w-full max-w-sm">
-          <p className="text-center text-zinc-300 mb-2">Unesi kod sobe:</p>
+          <p className="text-center text-zinc-300 mb-2">Enter room code:</p>
           <input
             type="text"
             value={joinCode}
@@ -110,13 +110,13 @@ export default function Home() {
             disabled={busy || joinCode.length !== 4}
             className="bg-[#FFC828] text-black font-bold py-4 px-8 rounded-lg text-xl hover:bg-[#FFD850] active:scale-95 transition disabled:opacity-50"
           >
-            {busy ? "..." : "UDJI"}
+            {busy ? "..." : "JOIN"}
           </button>
           <button
             onClick={() => { setMode("main"); setError(null); }}
             className="text-zinc-400 hover:text-white underline text-sm"
           >
-            Natrag
+            Back
           </button>
         </div>
       )}
@@ -128,7 +128,7 @@ export default function Home() {
       )}
 
       <p className="text-xs text-zinc-600 mt-12 text-center">
-        Dečki pečki • 2026
+        For the boys • 2026
       </p>
     </div>
   );
